@@ -102,13 +102,13 @@ class DQNAgent(rl.Agent):
     @tf.function
     def act(self, observation, greedy=False):
         observations = tf.expand_dims(observation, axis=0)
-        Q = self.target_av(observations)
+        Q = self.action_value(observations)
         action = self.control(Q, greedy)[0]
         return action
 
     def learn(self):
         observations, actions, rewards, dones, next_observations = self.memory.sample(self.sample_size)
-        expected_futur_rewards = self.evaluation(rewards, dones, next_observations, self.action_value)
+        expected_futur_rewards = self.evaluation(rewards, dones, next_observations, self.target_av)
 
         if self.step % self.update_period == 0:
             # update parameters in target action value
