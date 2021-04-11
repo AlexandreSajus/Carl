@@ -200,7 +200,7 @@ if __name__ == "__main__":
         'exploration_decay': 0.5e-4,
         'exploration_minimum': 3e-2,
 
-        'discount': 0.90,
+        'discount': 0.9,  # test avec 0.8
 
         'dense_1_size': 256,
         'dense_1_activation': 'relu',
@@ -212,7 +212,7 @@ if __name__ == "__main__":
         'dense_4_activation': 'relu',
         
         'sample_size': 4096,
-        'learning_rate': 0.5e-4,
+        'learning_rate': 0.2e-4,
         
         'training_period': 1,
         'update_period': 1,
@@ -224,13 +224,9 @@ if __name__ == "__main__":
     circuits = [
         [(0.5, 0), (2.5, 0), (3, 1), (3, 2), (2, 3), (1, 3), (0, 2), (0, 1)],
         [(0, 0), (1, 2), (0, 4), (3, 4), (2, 2), (3, 0)],
-        [(0, 0), (0.5, 1), (0, 2), (2, 2), (3, 1), (6, 2), (6, 0)],
+        [(0.5, 0), (2.5, 0), (3, 1), (3, 2), (2, 3), (1, 3), (0, 2), (0, 1)],
         [(1, 0), (6, 0), (6, 1), (5, 1), (5, 2), (6, 2), (6, 3),
         (4, 3), (4, 2), (2, 2), (2, 3), (0, 3), (0, 1)],
-        [(2, 0), (5, 0), (5.5, 1.5), (7, 2), (7, 4), (6, 4), (5, 3), (4, 4),
-        (3.5, 3), (3, 4), (2, 3), (1, 4), (0, 4), (0, 2), (1.5, 1.5)],
-        [(2, 0), (5, 0), (5.5, 1.5), (7, 2), (7, 4), (6, 4), (5, 3), (4, 4),
-        (3.5, 3), (3, 4), (2, 3), (1, 4), (0, 4), (0, 2), (1.5, 1.5)],
         [(2, 0), (5, 0), (5.5, 1.5), (7, 2), (7, 4), (6, 4), (5, 3), (4, 4),
         (3.5, 3), (3, 4), (2, 3), (1, 4), (0, 4), (0, 2), (1.5, 1.5)],
         generate_circuit(n_points=25, difficulty=0),
@@ -252,7 +248,7 @@ if __name__ == "__main__":
         generate_circuit(n_points=20, difficulty=5),
         generate_circuit(n_points=25, difficulty=10),
         generate_circuit(n_points=20, difficulty=10),
-        generate_circuit(n_points=20, difficulty=10),
+        generate_circuit(n_points=25, difficulty=10),
     ]
     n_circuits = len(circuits)
     env = Environment(circuits, names=config.model_name.capitalize(),
@@ -282,8 +278,8 @@ if __name__ == "__main__":
     #     kl.Dense(env.action_space.n, activation='linear',
     #              kernel_initializer=init_re)
     # ))
-    model_name = 'Ferrarlvg03.h5'
-    action_value = tf.keras.models.load_model(f'models/DQN/{model_name}')
+    pre_model_name = 'Ferrarlvg03.h5'
+    action_value = tf.keras.models.load_model(f'models/DQN/{pre_model_name}')
     
     agent = DQNAgent(
         action_value=action_value,
@@ -309,13 +305,13 @@ if __name__ == "__main__":
     check = CheckpointCallback(os.path.join('models', 'DQN', f"{config.model_name}"))
 
     pg = rl.Playground(env, agent)
-    # pg.fit(
-    #     250*n_circuits, verbose=2, metrics=metrics,
-    #     episodes_cycle_len=1,
-    #     callbacks=[check]
-    # )
+    pg.fit(
+        n_circuits*950, verbose=2, metrics=metrics,
+        episodes_cycle_len=n_circuits,
+        callbacks=[check]
+    )
     # score for each circuit (please ignore 'n°XX')
-    pg.test(len(circuits), verbose=1, callbacks=[score])
+    pg.test(len(circuits), verbose=1, episodes_cycle_len=1, callbacks=[score])
     # final score
     print('\nscore final :')
     pg.test(len(circuits), verbose=0, callbacks=[ScoreCallback()])
