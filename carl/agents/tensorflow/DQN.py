@@ -193,29 +193,29 @@ if __name__ == "__main__":
     }
     
     config = {
-        'model_name': 'model_name',
+        'model_name': 'Ferrarlvg02',
         'max_memory_len': 40960,
 
         'exploration': 0.2,
-        'exploration_decay': 0.2e-4,
-        'exploration_minimum': 5e-2,
+        'exploration_decay': 0.5e-4,
+        'exploration_minimum': 3e-2,
 
         'discount': 0.90,
 
-        'dense_1_size': 168,
+        'dense_1_size': 256,
         'dense_1_activation': 'relu',
-        'dense_2_size': 64,
+        'dense_2_size': 128,
         'dense_2_activation': 'relu',
-        'dense_3_size': 64,
+        'dense_3_size': 128,
         'dense_3_activation': 'relu',
-        'dense_4_size': 32,
+        'dense_4_size': 64,
         'dense_4_activation': 'relu',
         
         'sample_size': 4096,
-        'learning_rate': 1e-4,
+        'learning_rate': 0.5e-4,
         
         'training_period': 1,
-        'update_period': 30,
+        'update_period': 1,
         'update_factor': 0.2
     }
 
@@ -232,10 +232,6 @@ if __name__ == "__main__":
         generate_circuit(n_points=25, difficulty=0),
         generate_circuit(n_points=20, difficulty=10),
         generate_circuit(n_points=15, difficulty=0),
-        generate_circuit(n_points=20, difficulty=5),
-        generate_circuit(n_points=20, difficulty=5),
-        generate_circuit(n_points=25, difficulty=10),
-        generate_circuit(n_points=20, difficulty=5),
         [(0.5, 0), (2.5, 0), (3, 1), (3, 2), (2, 3), (1, 3), (0, 2), (0, 1)],
         [(0, 0), (1, 2), (0, 4), (3, 4), (2, 2), (3, 0)],
         [(0, 0), (0.5, 1), (0, 2), (2, 2), (3, 1), (6, 2), (6, 0)],
@@ -247,11 +243,8 @@ if __name__ == "__main__":
         generate_circuit(n_points=20, difficulty=5),
         generate_circuit(n_points=20, difficulty=5),
         generate_circuit(n_points=25, difficulty=10),
-        generate_circuit(n_points=20, difficulty=5),
-        generate_circuit(n_points=15, difficulty=0),
-        generate_circuit(n_points=20, difficulty=10),
-        generate_circuit(n_points=20, difficulty=0),
     ]
+    n_circuits = len(circuits)
     env = Environment(circuits, names=config.model_name.capitalize(),
                     n_sensors=7, fov=np.pi*220/180)
 
@@ -302,12 +295,17 @@ if __name__ == "__main__":
         'value~Q'
     ]
 
-    score = ScoreCallback()
+    score = ScoreCallback(print_circuits=True)
     check = CheckpointCallback(os.path.join('models', 'DQN', f"{config.model_name}"))
 
     pg = rl.Playground(env, agent)
     pg.fit(
-        10000, verbose=2, metrics=metrics,
+        1*n_circuits, verbose=2, metrics=metrics,
         episodes_cycle_len=1,
-        callbacks=[score, check]
+        callbacks=[check]
     )
+    # score for each circuit (please ignore 'n°XX')
+    pg.test(len(circuits), verbose=1, callbacks=[score])
+    # final score
+    print('\nscore final :')
+    pg.test(len(circuits), verbose=0, callbacks=[ScoreCallback()])
