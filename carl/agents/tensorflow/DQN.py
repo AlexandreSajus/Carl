@@ -107,9 +107,6 @@ class DQNAgent(rl.Agent):
         return action
 
     def learn(self):
-        observations, actions, rewards, dones, next_observations = self.memory.sample(self.sample_size)
-        expected_futur_rewards = self.evaluation(rewards, dones, next_observations, self.target_av)
-
         if self.step % self.update_period == 0:
             # update parameters in target action value
             weights = self.action_value.get_weights()
@@ -120,6 +117,10 @@ class DQNAgent(rl.Agent):
         if self.step % self.training_period != 0:
             # skip learning step
             return
+        
+        observations, actions, rewards, dones, next_observations = self.memory.sample(self.sample_size)
+        expected_futur_rewards = self.evaluation(rewards, dones, next_observations, self.target_av)
+
         
         with tf.GradientTape() as tape:
             Q = self.action_value(observations)
@@ -156,7 +157,7 @@ class DQNAgent(rl.Agent):
 
 if __name__ == "__main__":
     from carl.environment import Environment
-    from carl.agents.callbacks import ValidationCallback, CheckpointCallback
+    from carl.agents.callbacks import ScoreCallback, CheckpointCallback
     from carl.utils import generate_circuit
     import numpy as np
     kl = tf.keras.layers
@@ -185,60 +186,74 @@ if __name__ == "__main__":
 
         'sample_size': 4096,
         'learning_rate': 2e-4,
+        
+        'training_period': 1,
+        'update_period': 50,
+        'update_factor': 0.2
     }
     
     config = {
-        'model_name': 'ferrarl1',
+        'model_name': 'model_name',
         'max_memory_len': 40960,
 
-        'exploration': 0.15,
-        'exploration_decay': 0.5e-4,
+        'exploration': 0.2,
+        'exploration_decay': 0.2e-4,
         'exploration_minimum': 5e-2,
 
-        'discount': 0.9,
+        'discount': 0.90,
 
-        'dense_1_size': 128,
-        'dense_1_activation': 'tanh',
-        'dense_2_size': 128,
+        'dense_1_size': 168,
+        'dense_1_activation': 'relu',
+        'dense_2_size': 64,
         'dense_2_activation': 'relu',
         'dense_3_size': 64,
         'dense_3_activation': 'relu',
-
+        'dense_4_size': 32,
+        'dense_4_activation': 'relu',
+        
         'sample_size': 4096,
-        'learning_rate': 5e-4,
+        'learning_rate': 1e-4,
         
         'training_period': 1,
-        'update_period': 1,
-        'update_factor': 1
+        'update_period': 30,
+        'update_factor': 0.2
     }
 
     config = Config(config)
 
     circuits = [
-        # [(0.5, 0), (2.5, 0), (3, 1), (3, 2), (2, 3), (1, 3), (0, 2), (0, 1)],
-        # [(0, 0), (1, 2), (0, 4), (3, 4), (2, 2), (3, 0)],
-        # [(0, 0), (0.5, 1), (0, 2), (2, 2), (3, 1), (6, 2), (6, 0)],
-        # [(1, 0), (6, 0), (6, 1), (5, 1), (5, 2), (6, 2), (6, 3),
-        # (4, 3), (4, 2), (2, 2), (2, 3), (0, 3), (0, 1)],
-        # [(2, 0), (5, 0), (5.5, 1.5), (7, 2), (7, 4), (6, 4), (5, 3), (4, 4),
-        # (3.5, 3), (3, 4), (2, 3), (1, 4), (0, 4), (0, 2), (1.5, 1.5)],
+        [(0.5, 0), (2.5, 0), (3, 1), (3, 2), (2, 3), (1, 3), (0, 2), (0, 1)],
+        [(0, 0), (1, 2), (0, 4), (3, 4), (2, 2), (3, 0)],
+        [(0, 0), (0.5, 1), (0, 2), (2, 2), (3, 1), (6, 2), (6, 0)],
+        [(1, 0), (6, 0), (6, 1), (5, 1), (5, 2), (6, 2), (6, 3),
+        (4, 3), (4, 2), (2, 2), (2, 3), (0, 3), (0, 1)],
+        [(2, 0), (5, 0), (5.5, 1.5), (7, 2), (7, 4), (6, 4), (5, 3), (4, 4),
+        (3.5, 3), (3, 4), (2, 3), (1, 4), (0, 4), (0, 2), (1.5, 1.5)],
         generate_circuit(n_points=25, difficulty=0),
-        generate_circuit(n_points=20, difficulty=5),
+        generate_circuit(n_points=20, difficulty=10),
         generate_circuit(n_points=15, difficulty=0),
         generate_circuit(n_points=20, difficulty=5),
         generate_circuit(n_points=20, difficulty=5),
-        generate_circuit(n_points=25, difficulty=0),
+        generate_circuit(n_points=25, difficulty=10),
         generate_circuit(n_points=20, difficulty=5),
+        [(0.5, 0), (2.5, 0), (3, 1), (3, 2), (2, 3), (1, 3), (0, 2), (0, 1)],
+        [(0, 0), (1, 2), (0, 4), (3, 4), (2, 2), (3, 0)],
+        [(0, 0), (0.5, 1), (0, 2), (2, 2), (3, 1), (6, 2), (6, 0)],
+        [(1, 0), (6, 0), (6, 1), (5, 1), (5, 2), (6, 2), (6, 3),
+        (4, 3), (4, 2), (2, 2), (2, 3), (0, 3), (0, 1)],
+        [(2, 0), (5, 0), (5.5, 1.5), (7, 2), (7, 4), (6, 4), (5, 3), (4, 4),
+        (3.5, 3), (3, 4), (2, 3), (1, 4), (0, 4), (0, 2), (1.5, 1.5)],
         generate_circuit(n_points=15, difficulty=0),
         generate_circuit(n_points=20, difficulty=5),
         generate_circuit(n_points=20, difficulty=5),
-        generate_circuit(n_points=25, difficulty=0),
+        generate_circuit(n_points=25, difficulty=10),
         generate_circuit(n_points=20, difficulty=5),
         generate_circuit(n_points=15, difficulty=0),
-        generate_circuit(n_points=20, difficulty=5),
+        generate_circuit(n_points=20, difficulty=10),
         generate_circuit(n_points=20, difficulty=0),
     ]
-    env = Environment(circuits, names=config.model_name.capitalize(), n_sensors=7, fov=np.pi*220/180)
+    env = Environment(circuits, names=config.model_name.capitalize(),
+                    n_sensors=7, fov=np.pi*220/180)
 
     memory = Memory(config.max_memory_len)
     control = EpsGreedy(
@@ -253,16 +268,18 @@ if __name__ == "__main__":
     
     action_value = tf.keras.models.Sequential((
         kl.Dense(config.dense_1_size, activation=config.dense_1_activation,
-                 kernel_initializer=init_th),
+                 kernel_initializer=init_re),
         kl.BatchNormalization(),
         kl.Dense(config.dense_2_size, activation=config.dense_2_activation,
                  kernel_initializer=init_re),
-        kl.BatchNormalization(),
         kl.Dense(config.dense_3_size, activation=config.dense_3_activation,
                  kernel_initializer=init_re),
-        kl.Dense(env.action_space.n, activation='linear')
+        kl.Dense(config.dense_4_size, activation=config.dense_4_activation,
+                 kernel_initializer=init_re),
+        kl.Dense(env.action_space.n, activation='linear',
+                 kernel_initializer=init_re)
     ))
-    # model_name = 'ferrarl1.h5'
+    # model_name = 'ferrarl01.h5'
     # action_value = tf.keras.models.load_model(f'models/DQN/{model_name}')
     
     agent = DQNAgent(
@@ -285,12 +302,12 @@ if __name__ == "__main__":
         'value~Q'
     ]
 
-    valid = ValidationCallback()
+    score = ScoreCallback()
     check = CheckpointCallback(os.path.join('models', 'DQN', f"{config.model_name}"))
 
     pg = rl.Playground(env, agent)
     pg.fit(
-        2000, verbose=2, metrics=metrics,
+        10000, verbose=2, metrics=metrics,
         episodes_cycle_len=1,
-        callbacks=[valid, check]
+        callbacks=[score, check]
     )
