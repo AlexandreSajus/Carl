@@ -18,8 +18,10 @@ class CheckpointCallback(rl.Callback):
             self.playground.test(1)
 
 class ScoreCallback(rl.Callback):
-    def __init__(self, **kwargs):
+
+    def __init__(self, print_circuits=False):
         self.step = 0
+        self.print_circuits = print_circuits
 
     def on_run_begin(self, logs):
         self.score = np.zeros(self.playground.env.n_cars)
@@ -39,10 +41,13 @@ class ScoreCallback(rl.Callback):
 
         bonus = max(0, (2 - self.step / 200))
         score = np.where(crashed, progressions, 2 + bonus)
+        if len(score) == 1:
+            score = score[0]
+        if self.print_circuits:
+            print(f"circuit n°{env.current_circuit_id}:{score}")
         self.score += score
 
     def on_run_end(self, logs):
-        score = self.score
-        if len(score) == 1:
-            score = score[0]
-        print(f"score:{score}")
+        if not self.print_circuits:
+            print(f"score:{self.score}")
+
