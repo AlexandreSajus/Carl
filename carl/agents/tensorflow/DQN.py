@@ -193,10 +193,10 @@ if __name__ == "__main__":
     }
     
     config = {
-        'model_name': 'Ferrarlvg02',
+        'model_name': 'Ferrarlvg04',
         'max_memory_len': 40960,
 
-        'exploration': 0.2,
+        'exploration': 0.15,
         'exploration_decay': 0.5e-4,
         'exploration_minimum': 3e-2,
 
@@ -216,7 +216,7 @@ if __name__ == "__main__":
         
         'training_period': 1,
         'update_period': 1,
-        'update_factor': 0.2
+        'update_factor': 0.3
     }
 
     config = Config(config)
@@ -229,6 +229,10 @@ if __name__ == "__main__":
         (4, 3), (4, 2), (2, 2), (2, 3), (0, 3), (0, 1)],
         [(2, 0), (5, 0), (5.5, 1.5), (7, 2), (7, 4), (6, 4), (5, 3), (4, 4),
         (3.5, 3), (3, 4), (2, 3), (1, 4), (0, 4), (0, 2), (1.5, 1.5)],
+        [(2, 0), (5, 0), (5.5, 1.5), (7, 2), (7, 4), (6, 4), (5, 3), (4, 4),
+        (3.5, 3), (3, 4), (2, 3), (1, 4), (0, 4), (0, 2), (1.5, 1.5)],
+        [(2, 0), (5, 0), (5.5, 1.5), (7, 2), (7, 4), (6, 4), (5, 3), (4, 4),
+        (3.5, 3), (3, 4), (2, 3), (1, 4), (0, 4), (0, 2), (1.5, 1.5)],
         generate_circuit(n_points=25, difficulty=0),
         generate_circuit(n_points=20, difficulty=10),
         generate_circuit(n_points=15, difficulty=0),
@@ -239,10 +243,16 @@ if __name__ == "__main__":
         (4, 3), (4, 2), (2, 2), (2, 3), (0, 3), (0, 1)],
         [(2, 0), (5, 0), (5.5, 1.5), (7, 2), (7, 4), (6, 4), (5, 3), (4, 4),
         (3.5, 3), (3, 4), (2, 3), (1, 4), (0, 4), (0, 2), (1.5, 1.5)],
+        [(2, 0), (5, 0), (5.5, 1.5), (7, 2), (7, 4), (6, 4), (5, 3), (4, 4),
+        (3.5, 3), (3, 4), (2, 3), (1, 4), (0, 4), (0, 2), (1.5, 1.5)],
+        [(2, 0), (5, 0), (5.5, 1.5), (7, 2), (7, 4), (6, 4), (5, 3), (4, 4),
+        (3.5, 3), (3, 4), (2, 3), (1, 4), (0, 4), (0, 2), (1.5, 1.5)],
         generate_circuit(n_points=15, difficulty=0),
         generate_circuit(n_points=20, difficulty=5),
         generate_circuit(n_points=20, difficulty=5),
         generate_circuit(n_points=25, difficulty=10),
+        generate_circuit(n_points=20, difficulty=10),
+        generate_circuit(n_points=20, difficulty=10),
     ]
     n_circuits = len(circuits)
     env = Environment(circuits, names=config.model_name.capitalize(),
@@ -259,21 +269,21 @@ if __name__ == "__main__":
     init_re = tf.keras.initializers.HeUniform()
     init_th = tf.keras.initializers.GlorotUniform()
     
-    action_value = tf.keras.models.Sequential((
-        kl.Dense(config.dense_1_size, activation=config.dense_1_activation,
-                 kernel_initializer=init_re),
-        kl.BatchNormalization(),
-        kl.Dense(config.dense_2_size, activation=config.dense_2_activation,
-                 kernel_initializer=init_re),
-        kl.Dense(config.dense_3_size, activation=config.dense_3_activation,
-                 kernel_initializer=init_re),
-        kl.Dense(config.dense_4_size, activation=config.dense_4_activation,
-                 kernel_initializer=init_re),
-        kl.Dense(env.action_space.n, activation='linear',
-                 kernel_initializer=init_re)
-    ))
-    # model_name = 'ferrarl01.h5'
-    # action_value = tf.keras.models.load_model(f'models/DQN/{model_name}')
+    # action_value = tf.keras.models.Sequential((
+    #     kl.Dense(config.dense_1_size, activation=config.dense_1_activation,
+    #              kernel_initializer=init_re),
+    #     kl.BatchNormalization(),
+    #     kl.Dense(config.dense_2_size, activation=config.dense_2_activation,
+    #              kernel_initializer=init_re),
+    #     kl.Dense(config.dense_3_size, activation=config.dense_3_activation,
+    #              kernel_initializer=init_re),
+    #     kl.Dense(config.dense_4_size, activation=config.dense_4_activation,
+    #              kernel_initializer=init_re),
+    #     kl.Dense(env.action_space.n, activation='linear',
+    #              kernel_initializer=init_re)
+    # ))
+    model_name = 'Ferrarlvg03.h5'
+    action_value = tf.keras.models.load_model(f'models/DQN/{model_name}')
     
     agent = DQNAgent(
         action_value=action_value,
@@ -299,11 +309,11 @@ if __name__ == "__main__":
     check = CheckpointCallback(os.path.join('models', 'DQN', f"{config.model_name}"))
 
     pg = rl.Playground(env, agent)
-    pg.fit(
-        1*n_circuits, verbose=2, metrics=metrics,
-        episodes_cycle_len=1,
-        callbacks=[check]
-    )
+    # pg.fit(
+    #     250*n_circuits, verbose=2, metrics=metrics,
+    #     episodes_cycle_len=1,
+    #     callbacks=[check]
+    # )
     # score for each circuit (please ignore 'n°XX')
     pg.test(len(circuits), verbose=1, callbacks=[score])
     # final score
