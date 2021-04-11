@@ -157,7 +157,7 @@ class DQNAgent(rl.Agent):
 
 if __name__ == "__main__":
     from carl.environment import Environment
-    from carl.agents.callbacks import ValidationCallback, CheckpointCallback
+    from carl.agents.callbacks import ScoreCallback, CheckpointCallback
     from carl.utils import generate_circuit
     import numpy as np
     kl = tf.keras.layers
@@ -193,10 +193,10 @@ if __name__ == "__main__":
     }
     
     config = {
-        'model_name': 'ferrarl01',
+        'model_name': 'model_name',
         'max_memory_len': 40960,
 
-        'exploration': 0.3,
+        'exploration': 0.2,
         'exploration_decay': 0.2e-4,
         'exploration_minimum': 5e-2,
 
@@ -209,15 +209,6 @@ if __name__ == "__main__":
         'dense_3_size': 64,
         'dense_3_activation': 'relu',
         'dense_4_size': 32,
-        'dense_4_activation': 'relu',
-
-        'dense_1_size': 512,
-        'dense_1_activation': 'relu',
-        'dense_2_size': 256,
-        'dense_2_activation': 'relu',
-        'dense_3_size': 128,
-        'dense_3_activation': 'relu',
-        'dense_4_size': 128,
         'dense_4_activation': 'relu',
         
         'sample_size': 4096,
@@ -311,13 +302,12 @@ if __name__ == "__main__":
         'value~Q'
     ]
 
-    valid = ValidationCallback()
+    score = ScoreCallback()
     check = CheckpointCallback(os.path.join('models', 'DQN', f"{config.model_name}"))
 
     pg = rl.Playground(env, agent)
     pg.fit(
-        20000, verbose=2, metrics=metrics,
+        10000, verbose=2, metrics=metrics,
         episodes_cycle_len=1,
-        callbacks=[valid, check]
+        callbacks=[score, check]
     )
-    print(agent.step)
