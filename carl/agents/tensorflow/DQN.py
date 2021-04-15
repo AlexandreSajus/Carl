@@ -2,6 +2,8 @@
 import os
 import learnrl as rl
 import tensorflow as tf
+from tensorflow.python.keras.layers.core import Lambda
+from tensorflow.python.keras.layers.recurrent_v2 import LSTM
 
 from carl.agents.tensorflow.memory import Memory
 from copy import deepcopy
@@ -81,7 +83,8 @@ class DQNAgent(rl.Agent):
             learning_rate=1e-4,
             training_period=4,
             update_period=1,
-            update_factor=1
+            update_factor=1,
+            mem_method='random'
         ):
         
         self.action_value = action_value
@@ -90,6 +93,7 @@ class DQNAgent(rl.Agent):
 
         self.control = Control() if control is None else control
         self.memory = memory
+        self.mem_method = mem_method
         self.evaluation = evaluation
 
         self.sample_size = sample_size
@@ -107,6 +111,11 @@ class DQNAgent(rl.Agent):
         return action
 
     def learn(self):
+        
+        # if len(self.memory) < self.sample_size:
+        #     # skip learning step
+        #     return
+        
         if self.step % self.update_period == 0:
             # update parameters in target action value
             weights = self.action_value.get_weights()
@@ -118,7 +127,7 @@ class DQNAgent(rl.Agent):
             # skip learning step
             return
         
-        observations, actions, rewards, dones, next_observations = self.memory.sample(self.sample_size)
+        observations, actions, rewards, dones, next_observations = self.memory.sample(self.sample_size, method=self.mem_method)
         expected_futur_rewards = self.evaluation(rewards, dones, next_observations, self.target_av)
 
         
@@ -171,7 +180,7 @@ if __name__ == "__main__":
         'model_name': 'baseline',
         'max_memory_len': 40960,
 
-        'exploration': 0.1,
+        'exploration': 0.2,
         'exploration_decay': 1e-4,
         'exploration_minimum': 5e-2,
 
@@ -188,19 +197,19 @@ if __name__ == "__main__":
         'learning_rate': 2e-4,
         
         'training_period': 1,
-        'update_period': 50,
+        'update_period': 20,
         'update_factor': 0.2
     }
     
     config = {
-        'model_name': 'Ferrarlvg04',
+        'model_name': 'Ferrarlvg11',
         'max_memory_len': 40960,
 
-        'exploration': 0.15,
-        'exploration_decay': 0.5e-4,
+        'exploration': 0.35,
+        'exploration_decay': 0.2e-4,
         'exploration_minimum': 3e-2,
 
-        'discount': 0.9,  # test avec 0.8
+        'discount': 0.86,
 
         'dense_1_size': 256,
         'dense_1_activation': 'relu',
@@ -212,11 +221,13 @@ if __name__ == "__main__":
         'dense_4_activation': 'relu',
         
         'sample_size': 4096,
-        'learning_rate': 0.2e-4,
+        'learning_rate': 2.2e-5,
         
         'training_period': 1,
-        'update_period': 1,
-        'update_factor': 0.3
+        'update_period': 22,
+        'update_factor': 0.89,
+        
+        'mem_method': 'random'
     }
 
     config = Config(config)
@@ -224,35 +235,20 @@ if __name__ == "__main__":
     circuits = [
         [(0.5, 0), (2.5, 0), (3, 1), (3, 2), (2, 3), (1, 3), (0, 2), (0, 1)],
         [(0, 0), (1, 2), (0, 4), (3, 4), (2, 2), (3, 0)],
-        [(0.5, 0), (2.5, 0), (3, 1), (3, 2), (2, 3), (1, 3), (0, 2), (0, 1)],
-        [(1, 0), (6, 0), (6, 1), (5, 1), (5, 2), (6, 2), (6, 3),
-        (4, 3), (4, 2), (2, 2), (2, 3), (0, 3), (0, 1)],
-        [(2, 0), (5, 0), (5.5, 1.5), (7, 2), (7, 4), (6, 4), (5, 3), (4, 4),
-        (3.5, 3), (3, 4), (2, 3), (1, 4), (0, 4), (0, 2), (1.5, 1.5)],
-        generate_circuit(n_points=25, difficulty=0),
-        generate_circuit(n_points=20, difficulty=10),
-        generate_circuit(n_points=15, difficulty=0),
-        [(0.5, 0), (2.5, 0), (3, 1), (3, 2), (2, 3), (1, 3), (0, 2), (0, 1)],
-        [(0, 0), (1, 2), (0, 4), (3, 4), (2, 2), (3, 0)],
         [(0, 0), (0.5, 1), (0, 2), (2, 2), (3, 1), (6, 2), (6, 0)],
         [(1, 0), (6, 0), (6, 1), (5, 1), (5, 2), (6, 2), (6, 3),
         (4, 3), (4, 2), (2, 2), (2, 3), (0, 3), (0, 1)],
         [(2, 0), (5, 0), (5.5, 1.5), (7, 2), (7, 4), (6, 4), (5, 3), (4, 4),
         (3.5, 3), (3, 4), (2, 3), (1, 4), (0, 4), (0, 2), (1.5, 1.5)],
-        [(2, 0), (5, 0), (5.5, 1.5), (7, 2), (7, 4), (6, 4), (5, 3), (4, 4),
-        (3.5, 3), (3, 4), (2, 3), (1, 4), (0, 4), (0, 2), (1.5, 1.5)],
-        [(2, 0), (5, 0), (5.5, 1.5), (7, 2), (7, 4), (6, 4), (5, 3), (4, 4),
-        (3.5, 3), (3, 4), (2, 3), (1, 4), (0, 4), (0, 2), (1.5, 1.5)],
-        generate_circuit(n_points=15, difficulty=0),
+        generate_circuit(n_points=25, difficulty=0),
         generate_circuit(n_points=20, difficulty=5),
         generate_circuit(n_points=20, difficulty=5),
-        generate_circuit(n_points=25, difficulty=10),
         generate_circuit(n_points=20, difficulty=10),
         generate_circuit(n_points=25, difficulty=10),
     ]
     n_circuits = len(circuits)
     env = Environment(circuits, names=config.model_name.capitalize(),
-                    n_sensors=7, fov=np.pi*220/180)
+                    n_sensors=7, fov=np.pi*210/180)
 
     memory = Memory(config.max_memory_len)
     control = EpsGreedy(
@@ -262,24 +258,34 @@ if __name__ == "__main__":
     )
     evaluation = QLearning(config.discount)
 
-    init_re = tf.keras.initializers.HeUniform()
-    init_th = tf.keras.initializers.GlorotUniform()
+    # init_re = tf.keras.initializers.HeUniform()
+    # init_th = tf.keras.initializers.GlorotUniform()
+
+    # inputs = tf.keras.Input(shape=(8,))
+    # x = kl.Dense(config.dense_1_size, activation=config.dense_1_activation,
+    #              kernel_initializer=init_re)(inputs)
+    # x = kl.BatchNormalization()(x)
+    # x = kl.Dropout(0.3)(x, training=False)
+    # x = kl.Dense(config.dense_2_size, activation=config.dense_2_activation,
+    #              kernel_initializer=init_re)(x)
+    # x = kl.Dense(config.dense_3_size, activation=config.dense_3_activation,
+    #              kernel_initializer=init_re)(x)
+    # x = kl.Dense(config.dense_4_size, activation=config.dense_4_activation,
+    #              kernel_initializer=init_re)(x)
+    # outputs = kl.Dense(env.action_space.n, activation='linear',
+    #              kernel_initializer=init_re)(x)
+    # action_value = tf.keras.Model(inputs=inputs, outputs=outputs)
     
-    # action_value = tf.keras.models.Sequential((
-    #     kl.Dense(config.dense_1_size, activation=config.dense_1_activation,
-    #              kernel_initializer=init_re),
-    #     kl.BatchNormalization(),
-    #     kl.Dense(config.dense_2_size, activation=config.dense_2_activation,
-    #              kernel_initializer=init_re),
-    #     kl.Dense(config.dense_3_size, activation=config.dense_3_activation,
-    #              kernel_initializer=init_re),
-    #     kl.Dense(config.dense_4_size, activation=config.dense_4_activation,
-    #              kernel_initializer=init_re),
-    #     kl.Dense(env.action_space.n, activation='linear',
-    #              kernel_initializer=init_re)
-    # ))
-    pre_model_name = 'Ferrarlvg03.h5'
-    action_value = tf.keras.models.load_model(f'models/DQN/{pre_model_name}')
+    pre_model_name = 'Ferrarlvg11.h5'
+    action_value_model = tf.keras.models.load_model(f'models/DQN/{pre_model_name}')
+    
+    action_value = action_value_model
+    
+    i = 0
+    for layer in action_value_model.layers:
+        weights = layer.get_weights()
+        action_value.layers[i].set_weights(weights)
+        i += 1
     
     agent = DQNAgent(
         action_value=action_value,
@@ -290,7 +296,8 @@ if __name__ == "__main__":
         learning_rate=config.learning_rate,
         training_period=config.training_period,
         update_period=config.update_period,
-        update_factor=config.update_factor
+        update_factor=config.update_factor,
+        mem_method=config.mem_method
     )
     
     metrics=[
@@ -305,13 +312,16 @@ if __name__ == "__main__":
     check = CheckpointCallback(os.path.join('models', 'DQN', f"{config.model_name}"))
 
     pg = rl.Playground(env, agent)
-    pg.fit(
-        n_circuits*950, verbose=2, metrics=metrics,
-        episodes_cycle_len=n_circuits,
-        callbacks=[check]
-    )
+    # pg.fit(
+    #     n_circuits*40000, verbose=2, metrics=metrics,
+    #     episodes_cycle_len=n_circuits,
+    #     callbacks=[check]
+    # )
+    
     # score for each circuit (please ignore 'n°XX')
     pg.test(len(circuits), verbose=1, episodes_cycle_len=1, callbacks=[score])
+    
     # final score
     print('\nscore final :')
     pg.test(len(circuits), verbose=0, callbacks=[ScoreCallback()])
+    

@@ -69,9 +69,11 @@ class Cars(object):
         if hasattr(self, 'patch'):
             for patch in getattr(self, 'patch'):
                 patch.set_alpha(0)
+        if hasattr(self, 'sensor_lines'):
             for sensor_lines in getattr(self, 'sensor_lines'):
-                for line in sensor_lines:
-                    line.set_alpha(0)
+                if sensor_lines is not None:
+                    for line in sensor_lines:
+                        line.set_alpha(0)
         else:
             self.hover_text = [None for _ in range(self.n_cars)]
             self.patch = [None for _ in range(self.n_cars)]
@@ -80,8 +82,8 @@ class Cars(object):
     def action(self, actions, circuit):
         """Change the speed of the car and / or its direction.
         Both can be negative."""
-        speeds = actions[:, 0]
-        thetas = actions[:, 1]
+        speeds = np.clip(actions[:, 0], -1, 1)
+        thetas = 2 * np.clip(actions[:, 1], -1 , 1)
 
         self.speeds = np.maximum(0.0, self.speeds + speeds * self.SPEED_UNIT)
         self.thetas += self.in_circuit * thetas * self.ANGLE_UNIT

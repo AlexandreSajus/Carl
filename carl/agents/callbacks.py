@@ -2,21 +2,6 @@ import os
 import numpy as np
 import learnrl as rl
 
-class CheckpointCallback(rl.Callback):
-
-    def __init__(self, filename, save_every_cycle=False, run_test=True):
-        self.filename = filename
-        self.save_every_cycle = save_every_cycle
-        self.run_test = run_test
-
-    def on_episodes_cycle_end(self, episode, logs):
-        path = self.filename
-        if self.save_every_cycle:
-            path = os.path.join(path, f'episode_{episode}')
-        self.playground.agents[0].save(path)
-        if self.run_test:
-            self.playground.test(1)
-
 class ScoreCallback(rl.Callback):
 
     def __init__(self, print_circuits=False):
@@ -51,3 +36,17 @@ class ScoreCallback(rl.Callback):
         if not self.print_circuits:
             print(f"score:{self.score}")
 
+class CheckpointCallback(rl.Callback):
+
+    def __init__(self, filename, save_every_cycle=False, run_test=True):
+        self.filename = filename
+        self.save_every_cycle = save_every_cycle
+        self.run_test = run_test
+
+    def on_episodes_cycle_end(self, episode, logs):
+        path = self.filename
+        if self.save_every_cycle:
+            path = os.path.join(path, f'episode_{episode}')
+        self.playground.agents[0].save(path)
+        if self.run_test:
+            self.playground.test(1, callbacks=[ScoreCallback(print_circuits=True)])
