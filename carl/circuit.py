@@ -92,7 +92,7 @@ class Circuit(object):
 
     def plot(self, ax, color='gray', skeleton=True):
         title = 'Let the best AI win !'
-        ax.set_title(title, color='black', fontname='Lucida Console', fontsize=32)
+        ax.set_title(title, fontname='Lucida Console', fontsize=32)
 
         if skeleton:
             self.skeleton_patch = ax.plot(
@@ -103,11 +103,11 @@ class Circuit(object):
 
         self.start_line_patch = ax.plot(
             self.start_line.xy[0], self.start_line.xy[1],
-            color='black', linewidth=3, linestyle='-', zorder=3
+            color='red', linewidth=3, linestyle='-', zorder=3
         )
 
         self.circuit_patch = PolygonPatch(
-            self.circuit, fc=color, ec='black', alpha=0.5, zorder=2
+            self.circuit, fc=color, ec='red', alpha=0.5, zorder=2
         )
         ax.add_patch(self.circuit_patch)
 
@@ -179,7 +179,6 @@ class Circuit(object):
                 bbox = dict(facecolor=(1, 1, 0, 0.3), edgecolor='none', boxstyle='round,pad=0.5')
                 if not self.half_chicken_dinner:
                     title = f'{true_name} is on fire !'
-                    print(title)
                     self.half_chicken_dinner = True
                     ax.set_title(title, fontname='Lucida Console', color='orange', fontsize=32)
 
@@ -187,7 +186,6 @@ class Circuit(object):
                 bbox = dict(facecolor=(0, 1, 0, 0.3), edgecolor='none', boxstyle='round,pad=0.5')
                 if not self.chicken_dinner:
                     title = f'A winner is {true_name} ({car_id})!'
-                    print(title)
                     self.chicken_dinner = True
                     ax.set_title(title, fontname='Lucida Console', color='green', fontsize=32)
 
