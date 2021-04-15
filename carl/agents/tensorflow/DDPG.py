@@ -220,16 +220,20 @@ if __name__ == '__main__':
     env =  Environment(circuits=circuits, action_type='continuous',
                        fov=math.pi*210/180, n_sensors=7)
 
+    init_re = tf.keras.initializers.HeNormal()
+    init_th = tf.keras.initializers.GlorotNormal()
+    
     actor_network = tf.keras.Sequential([
-        kl.Dense(128, activation='relu'),
-        kl.Dense(128, activation='relu'),
-        kl.Dense(env.action_space.shape[0], activation='tanh'),
+        kl.Dense(128, activation='relu', kernel_initializer=init_re),
+        kl.Dense(128, activation='relu', kernel_initializer=init_re),
+        kl.Dense(env.action_space.shape[0], activation='tanh',
+                 kernel_initializer=init_th),
     ])
     
     value_network = tf.keras.Sequential([
-        kl.Dense(128, activation='relu'),
-        kl.Dense(128, activation='relu'),
-        kl.Dense(1, activation='linear'),
+        kl.Dense(128, activation='relu', kernel_initializer=init_re),
+        kl.Dense(128, activation='relu', kernel_initializer=init_re),
+        kl.Dense(1, activation='linear', kernel_initializer=init_re),
     ])
     # build value_network to get weights further
     value_network.build(([1, env.action_space.shape[0]+env.observation_space.shape[0]]))
@@ -242,7 +246,7 @@ if __name__ == '__main__':
                       value_lr=config.value_lr,
                       discount=config.discount,
                       exploration=config.exploration,
-                      exploration_decay=config.exploration,
+                      exploration_decay=config.exploration_decay,
                       exploration_min = config.exploration_min,
                       sample_size=config.sample_size,
                       training_period=config.training_period,
