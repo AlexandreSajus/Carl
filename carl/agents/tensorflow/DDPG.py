@@ -92,6 +92,10 @@ class DdpgAgent(rl.Agent):
         K.set_value(self.value.optimizer.lr, lr_val)
     
     def learn(self):
+        
+        # if len(self.memory) < self.sample_size :
+        #     return
+        
         if self.step % self.act_update_period == 0:
             self.update(self.actor, self.target_actor)
         
@@ -215,21 +219,34 @@ if __name__ == '__main__':
                 setattr(self, key, val)
     
     circuits = [
-        [(0.5, 0), (2.5, 0), (3, 1), (3, 2), (2, 3), (1, 3), (0, 2), (0, 1)],
-        [(0, 0), (1, 2), (0, 4), (3, 4), (2, 2), (3, 0)],
-        [(0, 0), (0.5, 1), (0, 2), (2, 2), (3, 1), (6, 2), (6, 0)],
-        [(1, 0), (6, 0), (6, 1), (5, 1), (5, 2), (6, 2), (6, 3),
-        (4, 3), (4, 2), (2, 2), (2, 3), (0, 3), (0, 1)],
-        [(2, 0), (5, 0), (5.5, 1.5), (7, 2), (7, 4), (6, 4), (5, 3), (4, 4),
-        (3.5, 3), (3, 4), (2, 3), (1, 4), (0, 4), (0, 2), (1.5, 1.5)],
+        generate_circuit(n_points=15, difficulty=0),
+        generate_circuit(n_points=25, difficulty=0),
+        generate_circuit(n_points=15, difficulty=4),
+        generate_circuit(n_points=25, difficulty=4),
+        generate_circuit(n_points=15, difficulty=12),
+        generate_circuit(n_points=25, difficulty=12),
+        generate_circuit(n_points=15, difficulty=20),
+        generate_circuit(n_points=25, difficulty=20),
+        generate_circuit(n_points=15, difficulty=4),
+        generate_circuit(n_points=25, difficulty=4),
+        generate_circuit(n_points=15, difficulty=12),
+        generate_circuit(n_points=25, difficulty=12),
+        generate_circuit(n_points=15, difficulty=20),
+        generate_circuit(n_points=25, difficulty=20),
+        generate_circuit(n_points=15, difficulty=4),
+        generate_circuit(n_points=25, difficulty=4),
+        generate_circuit(n_points=15, difficulty=12),
+        generate_circuit(n_points=25, difficulty=12),
+        generate_circuit(n_points=15, difficulty=20),
+        generate_circuit(n_points=25, difficulty=20),
         ]
     
     config = {
-        'max_memory_len': 10000,
+        'max_memory_len': 6000,
         'mem_method': 'random',
-        'sample_size': 128,
+        'sample_size': 256,
         
-        'exploration': 0.3,
+        'exploration': 0.2,
         'exploration_decay': 1e-5,
         'exploration_min': 0.1,
 
@@ -237,20 +254,22 @@ if __name__ == '__main__':
         
         
         'actor_lr': 0.2e-5,
-        'value_lr': 1e-4,
+        'value_lr': 1e-5,
         'lr_decay': 0,
         
         'val_training_period': 1,
-        'act_training_period': 1,
+        'act_training_period': 5,
         'val_update_period': 1,
-        'act_update_period': 1,
-        'update_factor': 0.01,
+        'act_update_period': 5,
+        'update_factor': 0.002,
         
-        'model_name': 'FerrarlVG6_01',
-        'load_model': False,
-        'load_model_name': "./models/DDPG/FerrarlVG6_01",
+        'model_name': 'FerrarlVGa_02',
+        'load_model': True,
+        'load_model_name': "./models/DDPG/FerrarlVGa_02",
         'load_actor': True,
         'load_value': True,
+        
+        'ignore_speed': True,
         
         'test_only': False
     }
@@ -258,7 +277,8 @@ if __name__ == '__main__':
     config = Config(config)
     
     env =  Environment(circuits=circuits, action_type='continuous',
-                       fov=math.pi*220/180, n_sensors=9)
+                       fov=math.pi*220/180, n_sensors=9,
+                       ignore_speed=config.ignore_speed)
     
     ## networks
     init_re = tf.keras.initializers.HeNormal()
@@ -267,7 +287,8 @@ if __name__ == '__main__':
     
     actor_network = tf.keras.Sequential([
         kl.BatchNormalization(),
-        kl.Dense(128, activation='relu', kernel_initializer=init_re),
+        kl.Dense(512, activation='relu', kernel_initializer=init_re),
+        kl.Dense(256, activation='relu', kernel_initializer=init_re),
         kl.Dense(128, activation='relu', kernel_initializer=init_re),
         kl.Dense(env.action_space.shape[0], activation='tanh',
                  kernel_initializer=init_fin),
@@ -275,7 +296,8 @@ if __name__ == '__main__':
     
     value_network = tf.keras.Sequential([
         kl.BatchNormalization(),
-        kl.Dense(128, activation='relu', kernel_initializer=init_re),
+        kl.Dense(512, activation='relu', kernel_initializer=init_re),
+        kl.Dense(256, activation='relu', kernel_initializer=init_re),
         kl.Dense(128, activation='relu', kernel_initializer=init_re),
         kl.Dense(1, activation='linear', kernel_initializer=init_fin),
     ])
@@ -328,7 +350,7 @@ if __name__ == '__main__':
     pg = rl.Playground(env, agent)
     
     if not config.test_only:
-        pg.fit(10000, verbose=2, metrics=metrics, episodes_cycle_len=10,
+        pg.fit(10000, verbose=2, metrics=metrics, episodes_cycle_len=2*len(circuits),
             reward_handler=lambda reward, **kwargs: 0.1*reward,
             callbacks=[check])
     
@@ -338,5 +360,5 @@ if __name__ == '__main__':
     
     # final score
     print('\nscore final :')
-    pg.test(len(circuits), verbose=0, episodes_cycle_len=len(circuits),
+    pg.test(len(circuits), verbose=0, episodes_cycle_len=5,
             callbacks=[ScoreCallback()])
