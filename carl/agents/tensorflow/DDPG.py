@@ -229,26 +229,28 @@ if __name__ == '__main__':
         'mem_method': 'random',
         'sample_size': 128,
         
-        'exploration': 0.2,
+        'exploration': 0.3,
         'exploration_decay': 1e-5,
-        'exploration_min': 3e-2,
+        'exploration_min': 0.1,
 
         'discount': 0.99,
         
         
-        'actor_lr': 4e-5,
-        'value_lr': 5e-4,
+        'actor_lr': 0.2e-5,
+        'value_lr': 1e-4,
         'lr_decay': 0,
         
         'val_training_period': 1,
-        'act_training_period': 5,
+        'act_training_period': 1,
         'val_update_period': 1,
-        'act_update_period': 5,
+        'act_update_period': 1,
         'update_factor': 0.01,
         
-        'model_name': 'FerrarlVG6_03',
-        'load_model': True,
-        'load_model_name': "./models/DDPG/FerrarlVG6_02",
+        'model_name': 'FerrarlVG6_05',
+        'load_model': False,
+        'load_model_name': "./models/DDPG/FerrarlVG6_04",
+        'load_actor': True,
+        'load_value': False,
         
         'test_only': False
     }
@@ -305,7 +307,8 @@ if __name__ == '__main__':
     if config.load_model:
         # import previous model
         file_name = config.load_model_name
-        agent.load(file_name, load_actor=True, load_value=True)
+        agent.load(file_name, load_actor=config.load_actor,
+                   load_value=config.load_value)
     
     metrics=[
         ('reward~env-rwd', {'steps': 'sum', 'episode': 'sum'}),
@@ -325,7 +328,7 @@ if __name__ == '__main__':
     pg = rl.Playground(env, agent)
     
     if not config.test_only:
-        pg.fit(5000, verbose=2, metrics=metrics, episodes_cycle_len=10,
+        pg.fit(10000, verbose=2, metrics=metrics, episodes_cycle_len=10,
             reward_handler=lambda reward, **kwargs: 0.1*reward,
             callbacks=[check])
     
