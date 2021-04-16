@@ -137,8 +137,8 @@ class DdpgAgent(rl.Agent):
         with tf.GradientTape() as tape:
             choosen_actions = self.actor(observations, training=True)
             inputs = tf.concat([observations, choosen_actions], axis=-1)
-            actor_loss = -tf.reduce_mean(self.target_value(inputs))
-            # actor_loss = -tf.reduce_mean(self.value(inputs))
+            # actor_loss = -tf.reduce_mean(self.target_value(inputs))
+            actor_loss = -tf.reduce_mean(self.value(inputs))
         
         self.update_network(actor_loss, tape, self.actor, self.actor_opt)
         
@@ -246,11 +246,11 @@ if __name__ == '__main__':
         'act_update_period': 1,
         'update_factor': 0.01,
         
-        'model_name': 'FerrarlVG6_05',
+        'model_name': 'FerrarlVG6_01',
         'load_model': False,
-        'load_model_name': "./models/DDPG/FerrarlVG6_04",
+        'load_model_name': "./models/DDPG/FerrarlVG6_01",
         'load_actor': True,
-        'load_value': False,
+        'load_value': True,
         
         'test_only': False
     }
@@ -258,7 +258,7 @@ if __name__ == '__main__':
     config = Config(config)
     
     env =  Environment(circuits=circuits, action_type='continuous',
-                       fov=math.pi*210/180, n_sensors=7)
+                       fov=math.pi*220/180, n_sensors=9)
     
     ## networks
     init_re = tf.keras.initializers.HeNormal()
