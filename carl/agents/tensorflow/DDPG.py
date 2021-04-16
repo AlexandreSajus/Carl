@@ -30,11 +30,13 @@ class DdpgAgent(rl.Agent):
         self.memory = memory
         
         self.actor = actor
+        self.actor_lr_init = actor_lr
         self.target_actor = tf.keras.models.clone_model(actor)
         self.actor_opt = tf.optimizers.Adam(lr=actor_lr)
         actor.compile(self.actor_opt)
         
         self.value = value
+        self.value_lr_init = value_lr
         self.target_value = tf.keras.models.clone_model(value)
         self.value_opt = tf.optimizers.Adam(lr=value_lr)
         value.compile(self.value_opt)
@@ -135,7 +137,8 @@ class DdpgAgent(rl.Agent):
         with tf.GradientTape() as tape:
             choosen_actions = self.actor(observations, training=True)
             inputs = tf.concat([observations, choosen_actions], axis=-1)
-            actor_loss = -tf.reduce_mean(self.value(inputs))
+            actor_loss = -tf.reduce_mean(self.target_value(inputs))
+            # actor_loss = -tf.reduce_mean(self.value(inputs))
         
         self.update_network(actor_loss, tape, self.actor, self.actor_opt)
         
@@ -154,10 +157,10 @@ class DdpgAgent(rl.Agent):
         futur_rewards = rewards
         ndones = tf.logical_not(dones)
         if tf.reduce_any(ndones):
-            next_actions = self.actor(next_observations[ndones])
+            next_actions = self.target_actor(next_observations[ndones])
             next_inputs = tf.concat([next_observations[ndones], next_actions],
                                     axis=-1)
-            next_value = self.value(next_inputs)[..., 0]
+            next_value = self.target_value(next_inputs)[..., 0]
             
             ndones_indicies = tf.where(ndones)
             futur_rewards = tf.tensor_scatter_nd_add(
@@ -178,17 +181,25 @@ class DdpgAgent(rl.Agent):
         fn_value = filename + "_val.h5"
         tf.keras.models.save_model(self.actor, fn_actor)
         tf.keras.models.save_model(self.value, fn_value)
-        print(f'Models saved at {filename + "_val.h5/_act.h5"}')
+        print(f'Models saved at {filename + "_val.h5(_act.h5)"}')
     
     def load(self, filename: str, load_actor: bool=True, load_value: bool=True):
         if load_actor:
             fn_actor = filename + "_act.h5"
             self.actor = tf.keras.models.load_model(fn_actor,
                                                 custom_objects={'tf': tf})
+            self.target_actor = tf.keras.models.clone_model(self.actor)
         if load_value:
             fn_value = filename + "_val.h5"
             self.value = tf.keras.models.load_model(fn_value,
                                                 custom_objects={'tf': tf})
+            self.target_value = tf.keras.models.clone_model(self.value)
+        
+        # init optimizer with new lr
+        self.actor_opt = tf.optimizers.Adam(lr=self.actor_lr_init)
+        self.actor.compile(self.actor_opt)
+        self.value_opt = tf.optimizers.Adam(lr=self.actor_lr_init)
+        self.value.compile(self.value_opt)
 
 
 if __name__ == '__main__':
@@ -205,36 +216,36 @@ if __name__ == '__main__':
     
     circuits = [
         [(0.5, 0), (2.5, 0), (3, 1), (3, 2), (2, 3), (1, 3), (0, 2), (0, 1)],
-        # [(0, 0), (1, 2), (0, 4), (3, 4), (2, 2), (3, 0)],
-        # [(0, 0), (0.5, 1), (0, 2), (2, 2), (3, 1), (6, 2), (6, 0)],
-        # [(1, 0), (6, 0), (6, 1), (5, 1), (5, 2), (6, 2), (6, 3),
-        # (4, 3), (4, 2), (2, 2), (2, 3), (0, 3), (0, 1)],
-        # [(2, 0), (5, 0), (5.5, 1.5), (7, 2), (7, 4), (6, 4), (5, 3), (4, 4),
-        # (3.5, 3), (3, 4), (2, 3), (1, 4), (0, 4), (0, 2), (1.5, 1.5)],
+        [(0, 0), (1, 2), (0, 4), (3, 4), (2, 2), (3, 0)],
+        [(0, 0), (0.5, 1), (0, 2), (2, 2), (3, 1), (6, 2), (6, 0)],
+        [(1, 0), (6, 0), (6, 1), (5, 1), (5, 2), (6, 2), (6, 3),
+        (4, 3), (4, 2), (2, 2), (2, 3), (0, 3), (0, 1)],
+        [(2, 0), (5, 0), (5.5, 1.5), (7, 2), (7, 4), (6, 4), (5, 3), (4, 4),
+        (3.5, 3), (3, 4), (2, 3), (1, 4), (0, 4), (0, 2), (1.5, 1.5)],
         ]
     
     config = {
-        'model_name': 'FerrarlVG01',
+        'model_name': 'FerrarlVG6_03',
         
         'max_memory_len': 10000,
         'sample_size': 128,
         
-        'exploration': 0.3,
-        'exploration_decay': 1e-4,
+        'exploration': 0.2,
+        'exploration_decay': 1e-5,
         'exploration_min': 3e-2,
 
         'discount': 0.99,
         
         
-        'actor_lr': 1e-5,
-        'value_lr': 1e-3,
-        'lr_decay': 1e-3,
+        'actor_lr': 4e-5,
+        'value_lr': 5e-4,
+        'lr_decay': 0,
         
-        'val_training_period': 10,
-        'act_training_period': 10,
-        'val_update_period': 5,
-        'act_update_period': 5,
-        'update_factor': 0.01,
+        'val_training_period': 1,
+        'act_training_period': 1,
+        'val_update_period': 1,
+        'act_update_period': 1,
+        'update_factor': 0.1,
         
         'mem_method': 'random'
     }
@@ -243,26 +254,30 @@ if __name__ == '__main__':
     
     env =  Environment(circuits=circuits, action_type='continuous',
                        fov=math.pi*210/180, n_sensors=7)
-
+    
+    ## networks
     init_re = tf.keras.initializers.HeNormal()
     init_th = tf.keras.initializers.GlorotNormal()
+    init_fin = tf.keras.initializers.RandomUniform(-3e-3, 3e-3)
     
     actor_network = tf.keras.Sequential([
+        kl.BatchNormalization(),
         kl.Dense(128, activation='relu', kernel_initializer=init_re),
         kl.Dense(128, activation='relu', kernel_initializer=init_re),
         kl.Dense(env.action_space.shape[0], activation='tanh',
-                 kernel_initializer=init_th),
+                 kernel_initializer=init_fin),
     ])
     
     value_network = tf.keras.Sequential([
+        kl.BatchNormalization(),
         kl.Dense(128, activation='relu', kernel_initializer=init_re),
         kl.Dense(128, activation='relu', kernel_initializer=init_re),
-        kl.Dense(1, activation='linear', kernel_initializer=init_re),
+        kl.Dense(1, activation='linear', kernel_initializer=init_fin),
     ])
-    # build networks to get weights further
-    actor_network.build(([1, env.observation_space.shape[0]]))
-    value_network.build(([1, env.action_space.shape[0]+env.observation_space.shape[0]]))
     
+    # build actor network to get weights further
+    actor_network.build(([1, env.observation_space.shape[0]]))
+    value_network.build(([1, env.observation_space.shape[0]+env.action_space.shape[0]]))
     
     agent = DdpgAgent(action_space=env.action_space,
                       memory=Memory(config.max_memory_len),
@@ -284,9 +299,9 @@ if __name__ == '__main__':
                       mem_method=config.mem_method,
                       )
     
-    # # import previous model
-    # file_name = "FerrarlVG01"
-    # agent = agent.load(file_name, load_actor=True, load_value=True)
+    # import previous model
+    file_name = "./models/DDPG/FerrarlVG6_03"
+    agent.load(file_name, load_actor=True, load_value=True)
     
     metrics=[
         ('reward~env-rwd', {'steps': 'sum', 'episode': 'sum'}),
@@ -304,9 +319,9 @@ if __name__ == '__main__':
     score_callback = ScoreCallback(print_circuits=False)
     
     pg = rl.Playground(env, agent)
-    pg.fit(10000, verbose=2, metrics=metrics, episodes_cycle_len=20,
-           reward_handler=lambda reward, **kwargs: 0.1*reward,
-           callbacks=[check])
+    # pg.fit(5000, verbose=2, metrics=metrics, episodes_cycle_len=10,
+    #        reward_handler=lambda reward, **kwargs: 0.1*reward,
+    #        callbacks=[check])
     
     # score for each circuit (please ignore 'n°XX')
     pg.test(len(circuits), verbose=1, episodes_cycle_len=1,
