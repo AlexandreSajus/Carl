@@ -198,7 +198,7 @@ class DdpgAgent(rl.Agent):
         # init optimizer with new lr
         self.actor_opt = tf.optimizers.Adam(lr=self.actor_lr_init)
         self.actor.compile(self.actor_opt)
-        self.value_opt = tf.optimizers.Adam(lr=self.actor_lr_init)
+        self.value_opt = tf.optimizers.Adam(lr=self.value_lr_init)
         self.value.compile(self.value_opt)
 
 
@@ -225,9 +225,8 @@ if __name__ == '__main__':
         ]
     
     config = {
-        'model_name': 'FerrarlVG6_03',
-        
         'max_memory_len': 10000,
+        'mem_method': 'random',
         'sample_size': 128,
         
         'exploration': 0.2,
@@ -242,12 +241,16 @@ if __name__ == '__main__':
         'lr_decay': 0,
         
         'val_training_period': 1,
-        'act_training_period': 1,
+        'act_training_period': 5,
         'val_update_period': 1,
-        'act_update_period': 1,
-        'update_factor': 0.1,
+        'act_update_period': 5,
+        'update_factor': 0.01,
         
-        'mem_method': 'random'
+        'model_name': 'FerrarlVG6_03',
+        'load_model': True,
+        'load_model_name': "./models/DDPG/FerrarlVG6_02",
+        
+        'test_only': False
     }
     
     config = Config(config)
@@ -299,9 +302,10 @@ if __name__ == '__main__':
                       mem_method=config.mem_method,
                       )
     
-    # import previous model
-    file_name = "./models/DDPG/FerrarlVG6_03"
-    agent.load(file_name, load_actor=True, load_value=True)
+    if config.load_model:
+        # import previous model
+        file_name = config.load_model_name
+        agent.load(file_name, load_actor=True, load_value=True)
     
     metrics=[
         ('reward~env-rwd', {'steps': 'sum', 'episode': 'sum'}),
@@ -319,9 +323,11 @@ if __name__ == '__main__':
     score_callback = ScoreCallback(print_circuits=False)
     
     pg = rl.Playground(env, agent)
-    # pg.fit(5000, verbose=2, metrics=metrics, episodes_cycle_len=10,
-    #        reward_handler=lambda reward, **kwargs: 0.1*reward,
-    #        callbacks=[check])
+    
+    if not config.test_only:
+        pg.fit(5000, verbose=2, metrics=metrics, episodes_cycle_len=10,
+            reward_handler=lambda reward, **kwargs: 0.1*reward,
+            callbacks=[check])
     
     # score for each circuit (please ignore 'n°XX')
     pg.test(len(circuits), verbose=1, episodes_cycle_len=1,
