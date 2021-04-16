@@ -353,7 +353,7 @@ if __name__ == '__main__':
         pg.fit(10000, verbose=2, metrics=metrics, episodes_cycle_len=2*len(circuits),
             reward_handler=lambda reward, **kwargs: 0.1*reward,
             callbacks=[check])
-    
+
     # score for each circuit (please ignore 'n°XX')
     pg.test(len(circuits), verbose=1, episodes_cycle_len=1,
             callbacks=[score_callback])
