@@ -14,7 +14,7 @@ class Environment(gym.Env):
 
     def __init__(self, circuits, n_cars=1, action_type='discrete', add_random_circuits=False,
         render_sensors=None, n_sensors=5, fov=np.pi, names=None, road_width=0.3, max_steps=1000,
-        ignore_speed: bool=False):
+        ignore_speed: bool=False, penalize_speed: bool=False):
         self.render_sensors = render_sensors if render_sensors else n_cars < 6
         self.NUM_SENSORS = n_sensors
         self.FOV = fov
@@ -22,6 +22,7 @@ class Environment(gym.Env):
         self.max_steps = max_steps
         self.add_random_circuits = add_random_circuits
         self.ignore_speed = ignore_speed
+        self.penalize_speed = penalize_speed
 
         if isinstance(circuits, Circuit):
             circuits = [circuits]
@@ -128,6 +129,9 @@ class Environment(gym.Env):
             
         if not(self.ignore_speed):
             reward += self.cars.speeds[0]/20
+        
+        if self.penalize_speed:
+            reward -= self.cars.speeds[0]/150
             
         return np.float(reward)
 
