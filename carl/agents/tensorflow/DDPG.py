@@ -1,5 +1,6 @@
 from abc import abstractmethod
 import os
+os.environ['TF_XLA_FLAGS'] = '--tf_xla_enable_xla_devices'
 import learnrl as rl
 import tensorflow as tf
 import tensorflow.keras.backend as K
@@ -9,7 +10,7 @@ import gym
 from carl.agents.tensorflow.memory import Memory
 
 class DdpgAgent(rl.Agent):
-    
+
     def __init__(self, action_space:gym.spaces.Box, memory:Memory, 
                 actor: tf.Module, value: tf.Module,
                 discount: float=0.99,
@@ -57,7 +58,7 @@ class DdpgAgent(rl.Agent):
         self.mem_method = mem_method
         
         self.step = 0
-    
+
     def act(self, observation, greedy=False):
         observations = tf.expand_dims(observation, axis=0)
         action = self.actor(observations)[0]
@@ -65,7 +66,7 @@ class DdpgAgent(rl.Agent):
             return action
         else:
             return self.explore(action)
-    
+
     def explore(self, action):
         action += tf.random.normal(action.shape, mean=0.0, 
                                    stddev=self.exploration)
@@ -75,9 +76,9 @@ class DdpgAgent(rl.Agent):
         
         self.exploration *= (1-self.exploration_decay)
         self.exploration = max(self.exploration, self.exploration_min)
-        
+
         return action
-    
+
     def update(self, initial_net, target_net):
         tau = self.update_factor
         val_weights = initial_net.get_weights()
@@ -92,6 +93,10 @@ class DdpgAgent(rl.Agent):
         K.set_value(self.value.optimizer.lr, lr_val)
     
     def learn(self):
+        
+        # if len(self.memory) < self.sample_size :
+        #     return
+        
         if self.step % self.act_update_period == 0:
             self.update(self.actor, self.target_actor)
         
@@ -208,82 +213,133 @@ if __name__ == '__main__':
     from carl.utils import generate_circuit
     import numpy as np
     kl = tf.keras.layers
-    
+
     class Config():
         def __init__(self, config):
             for key, val in config.items():
                 setattr(self, key, val)
-    
+
     circuits = [
-        [(0.5, 0), (2.5, 0), (3, 1), (3, 2), (2, 3), (1, 3), (0, 2), (0, 1)],
-        [(0, 0), (1, 2), (0, 4), (3, 4), (2, 2), (3, 0)],
-        [(0, 0), (0.5, 1), (0, 2), (2, 2), (3, 1), (6, 2), (6, 0)],
-        [(1, 0), (6, 0), (6, 1), (5, 1), (5, 2), (6, 2), (6, 3),
-        (4, 3), (4, 2), (2, 2), (2, 3), (0, 3), (0, 1)],
-        [(2, 0), (5, 0), (5.5, 1.5), (7, 2), (7, 4), (6, 4), (5, 3), (4, 4),
-        (3.5, 3), (3, 4), (2, 3), (1, 4), (0, 4), (0, 2), (1.5, 1.5)],
+        generate_circuit(n_points=20, difficulty=0),
+        generate_circuit(n_points=15, difficulty=0),
+        generate_circuit(n_points=10, difficulty=0),
+
+        generate_circuit(n_points=25, difficulty=4),
+        generate_circuit(n_points=20, difficulty=4),
+        generate_circuit(n_points=15, difficulty=4),
+        generate_circuit(n_points=10, difficulty=4),
+
+        generate_circuit(n_points=25, difficulty=9),
+        generate_circuit(n_points=20, difficulty=9),
+        generate_circuit(n_points=15, difficulty=9),
+        generate_circuit(n_points=15, difficulty=9),
+        generate_circuit(n_points=10, difficulty=9),
+
+        generate_circuit(n_points=25, difficulty=12),
+        generate_circuit(n_points=20, difficulty=12),
+        generate_circuit(n_points=20, difficulty=12),
+        generate_circuit(n_points=15, difficulty=12),
+        generate_circuit(n_points=15, difficulty=12),
+        generate_circuit(n_points=10, difficulty=12),
+
+        generate_circuit(n_points=25, difficulty=17),
+        generate_circuit(n_points=25, difficulty=17),
+        generate_circuit(n_points=20, difficulty=17),
+        generate_circuit(n_points=20, difficulty=17),
+        generate_circuit(n_points=15, difficulty=17),
+        generate_circuit(n_points=10, difficulty=17),
+
+        generate_circuit(n_points=25, difficulty=21),
+        generate_circuit(n_points=25, difficulty=21),
+        generate_circuit(n_points=20, difficulty=21),
+        generate_circuit(n_points=20, difficulty=21),
+        generate_circuit(n_points=15, difficulty=21),
+
+        generate_circuit(n_points=25, difficulty=25),
+        generate_circuit(n_points=25, difficulty=25),
+        generate_circuit(n_points=25, difficulty=25),
+        generate_circuit(n_points=20, difficulty=25),
+        generate_circuit(n_points=20, difficulty=25),
+        generate_circuit(n_points=15, difficulty=25),
+        generate_circuit(n_points=15, difficulty=25),
         ]
-    
+
     config = {
-        'max_memory_len': 10000,
+        'max_memory_len': 49984,
         'mem_method': 'random',
-        'sample_size': 128,
-        
-        'exploration': 0.3,
+        'sample_size': 1024,
+
+        'exploration': 0.2,
         'exploration_decay': 1e-5,
-        'exploration_min': 0.1,
+        'exploration_min': 0.05,
 
         'discount': 0.99,
-        
-        
-        'actor_lr': 0.2e-5,
-        'value_lr': 1e-4,
+
+
+        'actor_lr': 0.3e-5,
+        'value_lr': 0.3e-4,
         'lr_decay': 0,
-        
+
         'val_training_period': 1,
-        'act_training_period': 1,
+        'act_training_period': 5,
         'val_update_period': 1,
-        'act_update_period': 1,
+        'act_update_period': 5,  
         'update_factor': 0.01,
-        
-        'model_name': 'FerrarlVG6_01',
-        'load_model': False,
-        'load_model_name': "./models/DDPG/FerrarlVG6_01",
+
+        'model_name': 'FerrarlVGa_07',
+        'load_model': True,
+        'load_model_name': "./models/DDPG/FerrarlVGa_06",
         'load_actor': True,
         'load_value': True,
-        
-        'test_only': False
+
+        'ignore_speed': True,
+        'penalize_speed': False,
+
+        'test_only': True
     }
-    
+
     config = Config(config)
-    
+
     env =  Environment(circuits=circuits, action_type='continuous',
-                       fov=math.pi*220/180, n_sensors=9)
-    
+                       fov=math.pi*220/180, n_sensors=9,
+                       ignore_speed=config.ignore_speed,
+                       penalize_speed=config.penalize_speed)
+
     ## networks
     init_re = tf.keras.initializers.HeNormal()
     init_th = tf.keras.initializers.GlorotNormal()
     init_fin = tf.keras.initializers.RandomUniform(-3e-3, 3e-3)
-    
-    actor_network = tf.keras.Sequential([
-        kl.BatchNormalization(),
-        kl.Dense(128, activation='relu', kernel_initializer=init_re),
-        kl.Dense(128, activation='relu', kernel_initializer=init_re),
-        kl.Dense(env.action_space.shape[0], activation='tanh',
-                 kernel_initializer=init_fin),
-    ])
-    
-    value_network = tf.keras.Sequential([
-        kl.BatchNormalization(),
-        kl.Dense(128, activation='relu', kernel_initializer=init_re),
-        kl.Dense(128, activation='relu', kernel_initializer=init_re),
-        kl.Dense(1, activation='linear', kernel_initializer=init_fin),
-    ])
-    
+    n_obs = env.observation_space.shape[0]
+    n_act = env.action_space.shape[0]
+    # actor net
+    inputs = kl.Input(shape=(n_obs,))
+    speed = inputs[..., -1:]
+    x = kl.BatchNormalization()(inputs)
+    x = kl.Dense(128, activation='relu', kernel_initializer=init_re)(x)
+    x = kl.Dense(64, activation='relu', kernel_initializer=init_re)(x)
+    x = tf.concat([x, speed], axis=-1)
+    outputs = kl.Dense(n_act, activation='tanh',
+                 kernel_initializer=init_fin)(x)
+    actor_network = tf.keras.Model(inputs=inputs, outputs=outputs)
+
+    # value net
+    inputs = kl.Input(shape=(n_obs + n_act,))
+    observations = inputs[..., :n_obs]
+    speed = inputs[..., n_obs-1 : n_obs]
+    actions = inputs[..., n_obs:]
+    observations = kl.BatchNormalization()(observations)
+    x = kl.Dense(128, activation='relu', kernel_initializer=init_re)(observations)
+    x = tf.concat([x, actions], axis=-1)
+    x = kl.Dense(64, activation='relu', kernel_initializer=init_re)(x)
+    x = tf.concat([x, speed], axis=-1)
+    outputs = kl.Dense(1, activation='linear',
+                 kernel_initializer=init_fin)(x)
+    value_network = tf.keras.Model(inputs=inputs, outputs=outputs)
+
     # build actor network to get weights further
     actor_network.build(([1, env.observation_space.shape[0]]))
     value_network.build(([1, env.observation_space.shape[0]+env.action_space.shape[0]]))
-    
+
     agent = DdpgAgent(action_space=env.action_space,
                       memory=Memory(config.max_memory_len),
                       actor=actor_network,
@@ -303,13 +359,13 @@ if __name__ == '__main__':
                       update_factor=config.update_factor,
                       mem_method=config.mem_method,
                       )
-    
+
     if config.load_model:
         # import previous model
         file_name = config.load_model_name
         agent.load(file_name, load_actor=config.load_actor,
                    load_value=config.load_value)
-    
+
     metrics=[
         ('reward~env-rwd', {'steps': 'sum', 'episode': 'sum'}),
         ('handled_reward~reward', {'steps': 'sum', 'episode': 'sum'}),
@@ -320,23 +376,23 @@ if __name__ == '__main__':
         'exploration~exp',
         'Q'
     ]
-    
+
     check = CheckpointCallback(os.path.join('models', 'DDPG',
                                             f"{config.model_name}"))
     score_callback = ScoreCallback(print_circuits=False)
-    
+
     pg = rl.Playground(env, agent)
-    
+
     if not config.test_only:
-        pg.fit(10000, verbose=2, metrics=metrics, episodes_cycle_len=10,
+        pg.fit(100000, verbose=2, metrics=metrics, episodes_cycle_len=len(circuits),
             reward_handler=lambda reward, **kwargs: 0.1*reward,
             callbacks=[check])
-    
+
     # score for each circuit (please ignore 'n°XX')
     pg.test(len(circuits), verbose=1, episodes_cycle_len=1,
             callbacks=[score_callback])
-    
+
     # final score
     print('\nscore final :')
-    pg.test(len(circuits), verbose=0, episodes_cycle_len=len(circuits),
+    pg.test(len(circuits), verbose=0, episodes_cycle_len=5,
             callbacks=[ScoreCallback()])
