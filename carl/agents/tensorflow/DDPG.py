@@ -26,7 +26,9 @@ class DdpgAgent(rl.Agent):
                 act_update_period: int=1,
                 val_update_period: int=1,
                 update_factor: float=1,
-                mem_method: str='random'):
+                mem_method: str='random',
+                save_each_cycle: bool=False):
+        
         self.action_space = action_space
         self.memory = memory
         
@@ -56,6 +58,11 @@ class DdpgAgent(rl.Agent):
         self.update_factor = update_factor
         
         self.mem_method = mem_method
+        
+        self.save_each_cycle = save_each_cycle
+        if save_each_cycle:
+            self.save_step = 0
+            self.rwd_buffer = []
         
         self.step = 0
 
@@ -143,6 +150,7 @@ class DdpgAgent(rl.Agent):
             choosen_actions = self.actor(observations, training=True)
             inputs = tf.concat([observations, choosen_actions], axis=-1)
             # actor_loss = -tf.reduce_mean(self.target_value(inputs))
+            var = tf.math.reduce_std(self.value(inputs))
             actor_loss = -tf.reduce_mean(self.value(inputs))
         
         self.update_network(actor_loss, tape, self.actor, self.actor_opt)
@@ -150,7 +158,8 @@ class DdpgAgent(rl.Agent):
         # var sur le batch ??
         value_metrics = {
             'act_loss': actor_loss.numpy(),
-            'act_lr': K.eval(self.actor.optimizer.lr)
+            'act_lr': K.eval(self.actor.optimizer.lr),
+            'var Q batch': var.numpy()
         }
         return value_metrics   
     
@@ -180,6 +189,11 @@ class DdpgAgent(rl.Agent):
         self.memory.remember(observation, action, reward, done,
                              next_observation)
         self.step += 1
+        
+        if self.save_each_cycle:
+            self.rwd_buffer.append(reward)
+            if len(self.rwd_buffer) > 500:
+                self.rwd_buffer = self.rwd_buffer[1:]
     
     def save(self, filename: str):
         fn_actor = filename + "_act.h5"
@@ -187,6 +201,26 @@ class DdpgAgent(rl.Agent):
         tf.keras.models.save_model(self.actor, fn_actor)
         tf.keras.models.save_model(self.value, fn_value)
         print(f'Models saved at {filename + "_val.h5(_act.h5)"}')
+        
+        if self.save_each_cycle:
+            # save models in specific folder
+            self.save_step += 1
+            filename_dir = os.path.join(*filename.split('/')[:-1])
+            model_name = filename.split('/')[-1]
+            filename_dir = os.path.join(filename_dir, model_name)
+            if not os.path.isdir(filename_dir):
+                os.mkdir(filename_dir)
+            fn_actor = os.path.join(filename_dir, f'save_n°{self.save_step}_act.h5')
+            fn_value = os.path.join(filename_dir, f'save_n°{self.save_step}_val.h5')
+            tf.keras.models.save_model(self.actor, fn_actor)
+            tf.keras.models.save_model(self.value, fn_value)
+            
+            # save local average reward
+            log_name = os.path.join(filename_dir, "log rewards.txt")
+            with open(log_name, "a") as file:
+                np_buffer = np.array(self.rwd_buffer)
+                txt = f"save_n°{self.save_step} reward {np.mean(np_buffer): 2.4}\n"
+                file.write(txt)
     
     def load(self, filename: str, load_actor: bool=True, load_value: bool=True):
         if load_actor:
@@ -218,92 +252,127 @@ if __name__ == '__main__':
         def __init__(self, config):
             for key, val in config.items():
                 setattr(self, key, val)
+    
+    def circuits_pipeline(mode='aleat'):
+        
+        if mode == 'easy':
+            pipeline = [
+                generate_circuit(n_points=20, difficulty=0),
+                generate_circuit(n_points=15, difficulty=0),
+                generate_circuit(n_points=10, difficulty=0),
 
-    circuits = [
-        generate_circuit(n_points=20, difficulty=0),
-        generate_circuit(n_points=15, difficulty=0),
-        generate_circuit(n_points=10, difficulty=0),
+                generate_circuit(n_points=25, difficulty=4),
+                generate_circuit(n_points=20, difficulty=4),
+                generate_circuit(n_points=15, difficulty=4),
+                generate_circuit(n_points=10, difficulty=4)
+            ]
+        
+        elif mode == 'aleat':
+            pipeline = [
+                generate_circuit(n_points=15, difficulty=4),
+                generate_circuit(n_points=10, difficulty=4),
 
-        generate_circuit(n_points=25, difficulty=4),
-        generate_circuit(n_points=20, difficulty=4),
-        generate_circuit(n_points=15, difficulty=4),
-        generate_circuit(n_points=10, difficulty=4),
+                generate_circuit(n_points=25, difficulty=9),
+                generate_circuit(n_points=20, difficulty=9),
+                generate_circuit(n_points=15, difficulty=9),
+                generate_circuit(n_points=15, difficulty=9),
+                generate_circuit(n_points=10, difficulty=9),
 
-        generate_circuit(n_points=25, difficulty=9),
-        generate_circuit(n_points=20, difficulty=9),
-        generate_circuit(n_points=15, difficulty=9),
-        generate_circuit(n_points=15, difficulty=9),
-        generate_circuit(n_points=10, difficulty=9),
+                generate_circuit(n_points=25, difficulty=12),
+                generate_circuit(n_points=20, difficulty=12),
+                generate_circuit(n_points=20, difficulty=12),
+                generate_circuit(n_points=15, difficulty=12),
+                generate_circuit(n_points=15, difficulty=12),
+                generate_circuit(n_points=10, difficulty=12),
 
-        generate_circuit(n_points=25, difficulty=12),
-        generate_circuit(n_points=20, difficulty=12),
-        generate_circuit(n_points=20, difficulty=12),
-        generate_circuit(n_points=15, difficulty=12),
-        generate_circuit(n_points=15, difficulty=12),
-        generate_circuit(n_points=10, difficulty=12),
+                generate_circuit(n_points=25, difficulty=17),
+                generate_circuit(n_points=25, difficulty=17),
+                generate_circuit(n_points=20, difficulty=17),
+                generate_circuit(n_points=20, difficulty=17),
+                generate_circuit(n_points=15, difficulty=17),
+                generate_circuit(n_points=10, difficulty=17),
 
-        generate_circuit(n_points=25, difficulty=17),
-        generate_circuit(n_points=25, difficulty=17),
-        generate_circuit(n_points=20, difficulty=17),
-        generate_circuit(n_points=20, difficulty=17),
-        generate_circuit(n_points=15, difficulty=17),
-        generate_circuit(n_points=10, difficulty=17),
+                generate_circuit(n_points=25, difficulty=21),
+                generate_circuit(n_points=25, difficulty=21),
+                generate_circuit(n_points=20, difficulty=21),
+                generate_circuit(n_points=20, difficulty=21),
+                generate_circuit(n_points=15, difficulty=21),
 
-        generate_circuit(n_points=25, difficulty=21),
-        generate_circuit(n_points=25, difficulty=21),
-        generate_circuit(n_points=20, difficulty=21),
-        generate_circuit(n_points=20, difficulty=21),
-        generate_circuit(n_points=15, difficulty=21),
-
-        generate_circuit(n_points=25, difficulty=25),
-        generate_circuit(n_points=25, difficulty=25),
-        generate_circuit(n_points=25, difficulty=25),
-        generate_circuit(n_points=20, difficulty=25),
-        generate_circuit(n_points=20, difficulty=25),
-        generate_circuit(n_points=15, difficulty=25),
-        generate_circuit(n_points=15, difficulty=25),
-        ]
-
+                generate_circuit(n_points=25, difficulty=25),
+                generate_circuit(n_points=25, difficulty=25),
+                generate_circuit(n_points=25, difficulty=25),
+                generate_circuit(n_points=20, difficulty=25),
+                generate_circuit(n_points=20, difficulty=25),
+                generate_circuit(n_points=15, difficulty=25),
+                generate_circuit(n_points=15, difficulty=25),
+            ]
+            
+        elif mode == 'fixed':
+            pipeline = [
+                [(0.5, 0), (2.5, 0), (3, 1), (3, 2), (2, 3), (1, 3),
+                 (0, 2), (0, 1)],
+                [(0, 0), (1, 2), (0, 4), (3, 4), (2, 2), (3, 0)],
+                [(0, 0), (0.5, 1), (0, 2), (2, 2), (3, 1), (6, 2), (6, 0)],
+                [(1, 0), (6, 0), (6, 1), (5, 1), (5, 2), (6, 2), (6, 3),
+                 (4, 3), (4, 2), (2, 2), (2, 3), (0, 3), (0, 1)],
+                [(2, 0), (5, 0), (5.5, 1.5), (7, 2), (7, 4), (6, 4), (5, 3),
+                 (4, 4), (3.5, 3), (3, 4), (2, 3), (1, 4), (0, 4),
+                 (0, 2), (1.5, 1.5)],
+            ]
+            
+        elif mode == 'square':
+            pipeline = [[(0, 0), (4, 0), (4, 4), (0, 4)]*5]
+            
+        elif mode == 'triangle':
+            pipeline = [[(0, 0), (2.5, -5), (-2.5, -5)]*5]
+        
+        else:
+            raise ValueError(f'pipeline circuits mode not understood : {mode}')
+        
+        return pipeline
+    
     config = {
+        # memory
         'max_memory_len': 49984,
         'mem_method': 'random',
         'sample_size': 1024,
-
-        'exploration': 0.2,
-        'exploration_decay': 1e-5,
-        'exploration_min': 0.05,
-
+        # exploration
+        'exploration': 0.3,
+        'exploration_decay': 0.2e-5,
+        'exploration_min': 0.2,
+        # discount
         'discount': 0.99,
-
-
+        # learning rate
         'actor_lr': 0.3e-5,
         'value_lr': 0.3e-4,
-        'lr_decay': 0,
-
+        'lr_decay': 1e-6,
+        # target nets & update parameters
         'val_training_period': 1,
-        'act_training_period': 5,
+        'act_training_period': 10,
         'val_update_period': 1,
-        'act_update_period': 5,  
+        'act_update_period': 10,  
         'update_factor': 0.01,
-
-        'model_name': 'FerrarlVGa_07',
+        # environment
+        'speed_rwd': 0,
+        'circuits_mode': 'aleat',
+        # load & save options
+        'model_name': 'FerrarlVGa_04',
         'load_model': True,
-        'load_model_name': "./models/DDPG/FerrarlVGa_06",
+        'load_model_name': "./models/DDPG/FerrarlVGa_03",
         'load_actor': True,
         'load_value': True,
-
-        'ignore_speed': True,
-        'penalize_speed': False,
-
-        'test_only': True
+        'save_each_cycle': False,
+        # train/test option
+        'test_only': False
     }
 
     config = Config(config)
+    
+    circuits = circuits_pipeline(mode=config.circuits_mode)
 
     env =  Environment(circuits=circuits, action_type='continuous',
                        fov=math.pi*220/180, n_sensors=9,
-                       ignore_speed=config.ignore_speed,
-                       penalize_speed=config.penalize_speed)
+                       speed_rwd=config.speed_rwd)
 
     ## networks
     init_re = tf.keras.initializers.HeNormal()
@@ -315,30 +384,24 @@ if __name__ == '__main__':
     inputs = kl.Input(shape=(n_obs,))
     speed = inputs[..., -1:]
     x = kl.BatchNormalization()(inputs)
-    x = kl.Dense(128, activation='relu', kernel_initializer=init_re)(x)
-    x = kl.Dense(64, activation='relu', kernel_initializer=init_re)(x)
+    x = kl.Dense(512, activation='relu', kernel_initializer=init_re)(x)
+    x = kl.Dense(256, activation='relu', kernel_initializer=init_re)(x)
     x = tf.concat([x, speed], axis=-1)
     outputs = kl.Dense(n_act, activation='tanh',
                  kernel_initializer=init_fin)(x)
     actor_network = tf.keras.Model(inputs=inputs, outputs=outputs)
-
+    
     # value net
     inputs = kl.Input(shape=(n_obs + n_act,))
-    observations = inputs[..., :n_obs]
     speed = inputs[..., n_obs-1 : n_obs]
-    actions = inputs[..., n_obs:]
-    observations = kl.BatchNormalization()(observations)
-    x = kl.Dense(128, activation='relu', kernel_initializer=init_re)(observations)
-    x = tf.concat([x, actions], axis=-1)
-    x = kl.Dense(64, activation='relu', kernel_initializer=init_re)(x)
+    x = kl.BatchNormalization()(inputs)
+    x = kl.Dense(512, activation='relu', kernel_initializer=init_re)(x)
+    # x = tf.concat([x, actions], axis=-1)
+    x = kl.Dense(256, activation='relu', kernel_initializer=init_re)(x)
     x = tf.concat([x, speed], axis=-1)
     outputs = kl.Dense(1, activation='linear',
                  kernel_initializer=init_fin)(x)
     value_network = tf.keras.Model(inputs=inputs, outputs=outputs)
-
-    # build actor network to get weights further
-    actor_network.build(([1, env.observation_space.shape[0]]))
-    value_network.build(([1, env.observation_space.shape[0]+env.action_space.shape[0]]))
 
     agent = DdpgAgent(action_space=env.action_space,
                       memory=Memory(config.max_memory_len),
@@ -358,6 +421,7 @@ if __name__ == '__main__':
                       val_update_period=config.val_update_period,
                       update_factor=config.update_factor,
                       mem_method=config.mem_method,
+                      save_each_cycle=config.save_each_cycle,
                       )
 
     if config.load_model:
@@ -374,7 +438,8 @@ if __name__ == '__main__':
         'act_lr',
         'val_lr',
         'exploration~exp',
-        'Q'
+        'Q',
+        'var Q batch',
     ]
 
     check = CheckpointCallback(os.path.join('models', 'DDPG',
@@ -387,12 +452,8 @@ if __name__ == '__main__':
         pg.fit(100000, verbose=2, metrics=metrics, episodes_cycle_len=len(circuits),
             reward_handler=lambda reward, **kwargs: 0.1*reward,
             callbacks=[check])
-
+    
     # score for each circuit (please ignore 'n°XX')
     pg.test(len(circuits), verbose=1, episodes_cycle_len=1,
             callbacks=[score_callback])
-
-    # final score
-    print('\nscore final :')
-    pg.test(len(circuits), verbose=0, episodes_cycle_len=5,
-            callbacks=[ScoreCallback()])
+    
