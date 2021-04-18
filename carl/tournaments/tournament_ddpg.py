@@ -5,7 +5,7 @@ from learnrl import Agent, Playground
 
 from carl.utils import generate_circuit, teams_from_csv
 from carl.environment import Environment
-from carl.agents.tensorflow.DQN import DQNAgent
+from carl.agents.tensorflow.DDPG import DDPGAgent
 from carl.agents.callbacks import ScoreCallback
 
 class MultiAgent(Agent):
@@ -32,23 +32,28 @@ circuits = [
      (3.5, 3), (3, 4), (2, 3), (1, 4), (0, 4), (0, 2), (1.5, 1.5)],
 ]
 
-teams = teams_from_csv(
-    models_path = os.path.join('models', 'DQN', 'challenge_dqn'),
-    csv_path = os.path.join('models', 'DQN', 'challenge_dqn', 'teams.csv')
-)
+# teams = teams_from_csv(
+#     models_path = os.path.join('models', 'DDPG', 'challenge_ddpg'),
+#     csv_path = os.path.join('models', 'DDPG', 'challenge_ddpg', 'teams.csv')
+# )
 
-modelnames, filepaths = [], []
-for team in teams:
-    team_modelnames, team_filepaths = teams[team]
-    team_modelnames = [f"{team}({modelname})" for modelname in team_modelnames]
-    modelnames += team_modelnames
-    filepaths += team_filepaths
+# modelnames, filepaths = [], []
+
+# for team in teams:
+#     team_modelnames, team_filepaths = teams[team]
+#     team_modelnames = [f"{team}({modelname})" for modelname in team_modelnames]
+#     modelnames += team_modelnames
+#     filepaths += team_filepaths
+
+filenames = os.listdir(os.path.join('models', 'DDPG'))
+filepaths = [os.path.join('models', 'DDPG', filename) for filename in filenames]
+modelnames = [filename.split('.')[0] for filename in filenames]
 
 n_agents = len(modelnames)
 env = Environment(circuits, n_agents, names=modelnames,
-    action_type='discrete', n_sensors=7, fov=np.pi*210/180)
+    action_type='continueous', n_sensors=9, fov=np.pi*220/180)
 
-agents = [DQNAgent(env.action_space) for _ in range(n_agents)]
+agents = [DDPGAgent(env.action_space) for _ in range(n_agents)]
 for agent, filepath in zip(agents, filepaths):
     agent.load(filepath)
 
