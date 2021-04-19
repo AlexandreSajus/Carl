@@ -337,33 +337,33 @@ if __name__ == '__main__':
         'mem_method': 'random',
         'sample_size': 1024,
         # exploration
-        'exploration': 0.3,
+        'exploration': 0.58,
         'exploration_decay': 0.2e-5,
-        'exploration_min': 0.2,
+        'exploration_min': 0.25,
         # discount
         'discount': 0.99,
         # learning rate
-        'actor_lr': 0.3e-5,
-        'value_lr': 0.3e-4,
+        'actor_lr': 3e-6,
+        'value_lr': 1e-5,
         'lr_decay': 1e-6,
         # target nets & update parameters
         'val_training_period': 1,
         'act_training_period': 10,
         'val_update_period': 1,
         'act_update_period': 10,  
-        'update_factor': 0.01,
+        'update_factor': 0.005,
         # environment
-        'speed_rwd': 0,
+        'speed_rwd': -0.002,
         'circuits_mode': 'aleat',
         # load & save options
-        'model_name': 'FerrarlVGa_04',
+        'model_name': 'FerrarlVGa_03',
         'load_model': True,
-        'load_model_name': "./models/DDPG/FerrarlVGa_03",
+        'load_model_name': "./models/DDPG/FerrarlVGa_02",
         'load_actor': True,
         'load_value': True,
         'save_each_cycle': False,
         # train/test option
-        'test_only': False
+        'test_only': True
     }
 
     config = Config(config)
@@ -390,18 +390,17 @@ if __name__ == '__main__':
     outputs = kl.Dense(n_act, activation='tanh',
                  kernel_initializer=init_fin)(x)
     actor_network = tf.keras.Model(inputs=inputs, outputs=outputs)
-    
     # value net
     inputs = kl.Input(shape=(n_obs + n_act,))
     speed = inputs[..., n_obs-1 : n_obs]
     x = kl.BatchNormalization()(inputs)
     x = kl.Dense(512, activation='relu', kernel_initializer=init_re)(x)
-    # x = tf.concat([x, actions], axis=-1)
     x = kl.Dense(256, activation='relu', kernel_initializer=init_re)(x)
     x = tf.concat([x, speed], axis=-1)
     outputs = kl.Dense(1, activation='linear',
                  kernel_initializer=init_fin)(x)
     value_network = tf.keras.Model(inputs=inputs, outputs=outputs)
+
 
     agent = DdpgAgent(action_space=env.action_space,
                       memory=Memory(config.max_memory_len),
@@ -453,7 +452,6 @@ if __name__ == '__main__':
             reward_handler=lambda reward, **kwargs: 0.1*reward,
             callbacks=[check])
     
-    # score for each circuit (please ignore 'n°XX')
+    # score printed at the end
     pg.test(len(circuits), verbose=1, episodes_cycle_len=1,
             callbacks=[score_callback])
-    
