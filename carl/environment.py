@@ -13,15 +13,9 @@ from carl.circuit import Circuit
 class Environment(gym.Env):
 
     def __init__(self, circuits, n_cars=1, action_type='discrete', add_random_circuits=False,
-        render_sensors=None, n_sensors=5, fov=np.pi, names=None, road_width=0.3, max_steps=1000,
-        speed_rwd=1/20):
-        self.render_sensors = render_sensors if render_sensors else n_cars < 6
-        self.NUM_SENSORS = n_sensors
-        self.FOV = fov
-        self.road_width = road_width
+        max_steps=1000, render_sensors=None, road_width=0.3, n_sensors=5, speed_rwd=1/20, **kwargs):
         self.max_steps = max_steps
         self.add_random_circuits = add_random_circuits
-        self.speed_rwd = speed_rwd
 
         if isinstance(circuits, Circuit):
             circuits = [circuits]
@@ -33,21 +27,23 @@ class Environment(gym.Env):
                 self.circuits[i] = circuit
             else:
                 self.n_cars = n_cars
-                self.circuits[i] = Circuit(circuit, n_cars=self.n_cars, width=self.road_width)
+                self.circuits[i] = Circuit(circuit, n_cars=self.n_cars, width=road_width)
         self.random_circuits = []
 
         self._current_circuit_id = -1
         self.cars = Cars(
             self.circuits[self.current_circuit_id],
-            names=names,
             n_cars=self.n_cars,
-            num_sensors=self.NUM_SENSORS,
-            render_sensors=self.render_sensors,
-            fov=self.FOV
+            n_sensors=n_sensors,
+            render_sensors=render_sensors if render_sensors else n_cars < 6,
+            **kwargs
         )
 
         self.render_ui = False
         self.render_init = False
+        
+        
+        self.speed_rewards = speed_rwd
 
         # Build individual action space
         self.action_type = action_type
@@ -62,7 +58,7 @@ class Environment(gym.Env):
             self.action_space = gym.spaces.Box(low=np.array([-1, -1]), high=np.array([1, 1]))
 
         # Build individual observation space
-        self.observation_space = gym.spaces.Box(low=0, high=np.inf, shape=(self.NUM_SENSORS+1,))
+        self.observation_space = gym.spaces.Box(low=0, high=np.inf, shape=(n_sensors+1,))
 
         self.time = 0
         self.progression = np.array([0 for _ in range(self.n_cars)])
@@ -94,11 +90,6 @@ class Environment(gym.Env):
             actions = [self.actions[action_id] for action_id in actions]
         actions = np.array(actions)
         self.cars.action(actions, self.current_circuit)
-        self.cars.render_locked = np.where(
-            self.current_circuit.laps == 2,
-            True,
-            self.cars.render_locked
-        )
 
         done = self.done
         reward = self.reward
@@ -125,7 +116,7 @@ class Environment(gym.Env):
         if circuit.laps[0] + circuit.progression[0] > self.progression[0]:
             reward += (circuit.laps[0] + circuit.progression[0] - self.progression[0])
             self.progression[0] = circuit.laps[0] + circuit.progression[0]
-        reward += self.cars.speeds[0] * self.speed_rwd
+        reward += self.cars.speeds[0] * self.speed_rewards
         return np.float(reward)
 
     @property
