@@ -260,15 +260,45 @@ if __name__ == '__main__':
                 generate_circuit(n_points=20, difficulty=0),
                 generate_circuit(n_points=15, difficulty=0),
                 generate_circuit(n_points=10, difficulty=0),
+                generate_circuit(n_points=20, difficulty=0),
+                generate_circuit(n_points=15, difficulty=0),
+            ]
+        elif mode == 'samples':
+            pipeline = [
+                generate_circuit(n_points=20, difficulty=0),
 
                 generate_circuit(n_points=25, difficulty=4),
                 generate_circuit(n_points=20, difficulty=4),
-                generate_circuit(n_points=15, difficulty=4),
-                generate_circuit(n_points=10, difficulty=4)
+
+                generate_circuit(n_points=25, difficulty=9),
+                generate_circuit(n_points=20, difficulty=9),
+
+                generate_circuit(n_points=25, difficulty=12),
+                generate_circuit(n_points=20, difficulty=12),
+
+                generate_circuit(n_points=25, difficulty=17),
+                generate_circuit(n_points=25, difficulty=17),
+
+
+                generate_circuit(n_points=25, difficulty=21),
+                generate_circuit(n_points=25, difficulty=21),
+
+
+                generate_circuit(n_points=25, difficulty=25),
+                generate_circuit(n_points=25, difficulty=25),
+
             ]
-        
+            
+            
+            
         elif mode == 'aleat':
             pipeline = [
+                generate_circuit(n_points=20, difficulty=0),
+                generate_circuit(n_points=15, difficulty=0),
+                generate_circuit(n_points=10, difficulty=0),
+
+                generate_circuit(n_points=25, difficulty=4),
+                generate_circuit(n_points=20, difficulty=4),
                 generate_circuit(n_points=15, difficulty=4),
                 generate_circuit(n_points=10, difficulty=4),
 
@@ -306,8 +336,8 @@ if __name__ == '__main__':
                 generate_circuit(n_points=15, difficulty=25),
                 generate_circuit(n_points=15, difficulty=25),
             ]
-            
-        elif mode == 'fixed':
+        
+        elif mode == '6':
             pipeline = [
                 [(0.5, 0), (2.5, 0), (3, 1), (3, 2), (2, 3), (1, 3),
                  (0, 2), (0, 1)],
@@ -319,10 +349,43 @@ if __name__ == '__main__':
                  (4, 4), (3.5, 3), (3, 4), (2, 3), (1, 4), (0, 4),
                  (0, 2), (1.5, 1.5)],
             ]
-            
+        
+        elif mode == '1':
+            pipeline = [[(0.5, 0), (2.5, 0), (3, 1), (3, 2), (2, 3), (1, 3),
+                 (0, 2), (0, 1)]*10]
+        
+        elif mode == '2':
+            pipeline =[[(0, 0), (1, 2), (0, 4), (3, 4), (2, 2), (3, 0)]*10]
+        
+        elif mode == '3':
+            pipeline = [[(0, 0), (0.5, 1), (0, 2), (2, 2), (3, 1), (6, 2),
+                         (6, 0)]*10]
+        
+        elif mode == '4':
+            pipeline = [[(1, 0), (6, 0), (6, 1), (5, 1), (5, 2), (6, 2),
+                         (6, 3),(4, 3), (4, 2), (2, 2), (2, 3), (0, 3),
+                         (0, 1)]*10]
+        
+        elif mode == '5':
+            pipeline = [[(2, 0), (5, 0), (5.5, 1.5), (7, 2), (7, 4), (6, 4),
+                        (5, 3), (4, 4), (3.5, 3), (3, 4), (2, 3), 
+                        (1, 4), (0, 4),(0, 2), (1.5, 1.5)]*10]
+        
+        elif mode == '1345':
+            pipeline = [[(0.5, 0), (2.5, 0), (3, 1), (3, 2), (2, 3), (1, 3),
+                        (0, 2), (0, 1)],
+                        [(0, 0), (0.5, 1), (0, 2), (2, 2), (3, 1), (6, 2),
+                         (6, 0)],
+                        [(1, 0), (6, 0), (6, 1), (5, 1), (5, 2), (6, 2),
+                         (6, 3),(4, 3), (4, 2), (2, 2), (2, 3), (0, 3),
+                         (0, 1)],
+                        [(2, 0), (5, 0), (5.5, 1.5), (7, 2), (7, 4), (6, 4),
+                        (5, 3), (4, 4), (3.5, 3), (3, 4), (2, 3), 
+                        (1, 4), (0, 4),(0, 2), (1.5, 1.5)]]
+        
         elif mode == 'square':
             pipeline = [[(0, 0), (4, 0), (4, 4), (0, 4)]*5]
-            
+        
         elif mode == 'triangle':
             pipeline = [[(0, 0), (2.5, -5), (-2.5, -5)]*5]
         
@@ -333,74 +396,71 @@ if __name__ == '__main__':
     
     config = {
         # memory
-        'max_memory_len': 49984,
+        'max_memory_len': 50000,
         'mem_method': 'random',
         'sample_size': 1024,
         # exploration
-        'exploration': 0.58,
-        'exploration_decay': 0.2e-5,
-        'exploration_min': 0.25,
+        'exploration': 0.4,
+        'exploration_decay': 2e-6,
+        'exploration_min': 0.2,
         # discount
         'discount': 0.99,
         # learning rate
-        'actor_lr': 3e-6,
-        'value_lr': 1e-5,
+        'actor_lr': 1e-6,
+        'value_lr': 3e-5,
         'lr_decay': 1e-6,
         # target nets & update parameters
         'val_training_period': 1,
-        'act_training_period': 10,
+        'act_training_period': 5,
         'val_update_period': 1,
-        'act_update_period': 10,  
-        'update_factor': 0.005,
+        'act_update_period': 5,
+        'update_factor': 0.001,
         # environment
-        'speed_rwd': -0.002,
+        'speed_rwd': 0,
         'circuits_mode': 'aleat',
         # load & save options
-        'model_name': 'FerrarlVGa_03',
-        'load_model': True,
-        'load_model_name': "./models/DDPG/FerrarlVGa_02",
+        'model_name': 'FerrarlVGa_30',
+        'load_model': False,
+        'load_model_name': "./models/DDPG/FerrarlASa_06",
         'load_actor': True,
         'load_value': True,
-        'save_each_cycle': False,
+        'save_each_cycle': True,
         # train/test option
-        'test_only': True
+        'test_only': False,
     }
-
+    
     config = Config(config)
     
     circuits = circuits_pipeline(mode=config.circuits_mode)
-
     env =  Environment(circuits=circuits, action_type='continuous',
                        fov=math.pi*220/180, n_sensors=9,
                        speed_rwd=config.speed_rwd)
-
+    
     ## networks
     init_re = tf.keras.initializers.HeNormal()
     init_th = tf.keras.initializers.GlorotNormal()
     init_fin = tf.keras.initializers.RandomUniform(-3e-3, 3e-3)
     n_obs = env.observation_space.shape[0]
     n_act = env.action_space.shape[0]
+    
     # actor net
     inputs = kl.Input(shape=(n_obs,))
-    speed = inputs[..., -1:]
     x = kl.BatchNormalization()(inputs)
-    x = kl.Dense(512, activation='relu', kernel_initializer=init_re)(x)
+    speed = x[..., -1:]
     x = kl.Dense(256, activation='relu', kernel_initializer=init_re)(x)
+    x = kl.Dense(128, activation='relu', kernel_initializer=init_re)(x)
     x = tf.concat([x, speed], axis=-1)
-    outputs = kl.Dense(n_act, activation='tanh',
-                 kernel_initializer=init_fin)(x)
+    outputs = kl.Dense(n_act, activation='tanh', kernel_initializer=init_fin)(x)
     actor_network = tf.keras.Model(inputs=inputs, outputs=outputs)
     # value net
-    inputs = kl.Input(shape=(n_obs + n_act,))
-    speed = inputs[..., n_obs-1 : n_obs]
+    inputs = kl.Input(shape=(n_obs+n_act,))
     x = kl.BatchNormalization()(inputs)
-    x = kl.Dense(512, activation='relu', kernel_initializer=init_re)(x)
+    speed = x[..., n_obs-1 : n_obs]
     x = kl.Dense(256, activation='relu', kernel_initializer=init_re)(x)
+    x = kl.Dense(128, activation='relu', kernel_initializer=init_re)(x)
     x = tf.concat([x, speed], axis=-1)
-    outputs = kl.Dense(1, activation='linear',
-                 kernel_initializer=init_fin)(x)
+    outputs = kl.Dense(1, activation='linear', kernel_initializer=init_fin)(x)
     value_network = tf.keras.Model(inputs=inputs, outputs=outputs)
-
 
     agent = DdpgAgent(action_space=env.action_space,
                       memory=Memory(config.max_memory_len),
@@ -421,13 +481,7 @@ if __name__ == '__main__':
                       update_factor=config.update_factor,
                       mem_method=config.mem_method,
                       save_each_cycle=config.save_each_cycle,
-                      )
-
-    if config.load_model:
-        # import previous model
-        file_name = config.load_model_name
-        agent.load(file_name, load_actor=config.load_actor,
-                   load_value=config.load_value)
+                      )    
 
     metrics=[
         ('reward~env-rwd', {'steps': 'sum', 'episode': 'sum'}),
@@ -444,14 +498,20 @@ if __name__ == '__main__':
     check = CheckpointCallback(os.path.join('models', 'DDPG',
                                             f"{config.model_name}"))
     score_callback = ScoreCallback(print_circuits=False)
-
+    
     pg = rl.Playground(env, agent)
 
-    if not config.test_only:
-        pg.fit(100000, verbose=2, metrics=metrics, episodes_cycle_len=len(circuits),
-            reward_handler=lambda reward, **kwargs: 0.1*reward,
-            callbacks=[check])
+    if config.load_model==True:
+        name = config.load_model_name + "_val.h5"
+        agent.load(name, load_actor=config.load_actor,
+                   load_value=config.load_value)
     
+    if not config.test_only:
+        pg.fit(200000, verbose=2, metrics=metrics, 
+               episodes_cycle_len=1*len(circuits),
+               reward_handler=lambda reward, **kwargs: 0.1*reward,
+               callbacks=[check])
+
     # score printed at the end
     pg.test(len(circuits), verbose=1, episodes_cycle_len=1,
             callbacks=[score_callback])
