@@ -175,19 +175,24 @@ class A2CAgent(rl.Agent):
         value_path = os.path.join(filename, "value.h5")
         return actor_path, value_path
 
-    def save(self, filename):
-        actor_path, value_path = self._get_filenames(filename)
-        tf.keras.models.save_model(self.actor, actor_path)
-        tf.keras.models.save_model(self.value, value_path)
-        print(f'Models saved under {filename}')
+    def save(self, filename: str):
+        fn_actor = filename + "_act.h5"
+        fn_value = filename + "_val.h5"
+        tf.keras.models.save_model(self.actor, fn_actor)
+        tf.keras.models.save_model(self.value, fn_value)
+        print(f'Models saved at {filename + "_val.h5(_act.h5)"}')
 
-    def load(self, filename):
-        actor_path, value_path = self._get_filenames(filename)
-        self.actor = tf.keras.models.load_model(
-            actor_path, custom_objects={'tf': tf})
-        if value_path is not None:
-            self.value = tf.keras.models.load_model(
-                value_path, custom_objects={'tf': tf})
+    def load(self, filename: str, load_actor: bool = True, load_value: bool = True):
+        if load_actor:
+            fn_actor = filename + "_act.h5"
+            self.actor = tf.keras.models.load_model(fn_actor,
+                                                    custom_objects={'tf': tf})
+            self.target_actor = tf.keras.models.clone_model(self.actor)
+        if load_value:
+            fn_value = filename + "_val.h5"
+            self.value = tf.keras.models.load_model(fn_value,
+                                                    custom_objects={'tf': tf})
+            self.target_value = tf.keras.models.clone_model(self.value)
 
 
 if __name__ == "__main__":
@@ -355,27 +360,26 @@ if __name__ == "__main__":
         # discount
         'discount': 0.99,
         # learning rate
-        'actor_lr': 1e-5,
-        'value_lr': 1e-3,
+        'actor_lr': 1e-6,
+        'value_lr': 3e-5,
         'lr_decay': 1e-6,                    # not yet implemented
         # entropy
         'entropy_reg': 1e-2,
         # target nets & update parameters
         'val_training_period': 1,
-        'act_training_period': 5,
+        'act_training_period': 1,
         'val_update_period': 1,
-        'act_update_period': 5,
-        'update_factor': 0.001,
+        'act_update_period': 1,
+        'update_factor': 0.1,
         # environment
         'speed_rwd': 1/20,
-        'circuits_mode': 'aleat',
+        'circuits_mode': '6',
         # load & save options
-        'model_name': 'FerrarlVGa_30',
-        'load_model': True,                  # not yet implemented
-        'load_model_name': "./models/DDPG/FerrarlASa_06",    # not yet implemented
-        'load_actor': True,                  # not yet implemented
-        'load_value': True,                  # //
-        'save_each_cycle': True,             # //
+        'model_name': 'FerrarlAS6_01',
+        'load_model': True,
+        'load_model_name': "./models/A2C/FerrarlAS6_01/episode_19",
+        'load_actor': True,
+        'load_value': True,
         # train/test option
         'test_only': True                    # not yet implemented
     }
@@ -462,7 +466,13 @@ if __name__ == "__main__":
     ]
 
     pg = rl.Playground(env, agent)
-    pg.fit(3000, verbose=2, episodes_cycle_len=1,
+
+    if config.load_model == True:
+        name = config.load_model_name
+        agent.load(name, load_actor=config.load_actor,
+                   load_value=config.load_value)
+
+    pg.fit(3000, verbose=2, episodes_cycle_len=10,
            callbacks=[check], metrics=metrics,
            reward_handler=lambda reward, **kwargs: reward
            )
