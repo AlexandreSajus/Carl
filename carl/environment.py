@@ -110,7 +110,7 @@ class Environment(gym.Env):
         reward = 0.0
         crashed = self.cars.crashed[0]
         if crashed:
-            reward -= 0.5
+            reward -= 0.5         # default is -= 0.5
 
         circuit = self.current_circuit
         if circuit.laps[0] + circuit.progression[0] > self.progression[0]:

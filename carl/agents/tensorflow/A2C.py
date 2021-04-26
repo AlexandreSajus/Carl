@@ -25,12 +25,16 @@ class A2CAgent(rl.Agent):
                  mem_method='random'):
 
         self.actor = actor
+        self.actor_lr_init = actor_lr
         self.actor_opt = tf.keras.optimizers.Adam(actor_lr)
         self.target_actor = tf.keras.models.clone_model(actor)
+        self.actor.compile(optimizer=self.actor_opt)
 
         self.value = value
+        self.value_lr_init = value_lr
         self.value_opt = tf.keras.optimizers.Adam(value_lr)
         self.target_value = tf.keras.models.clone_model(value)
+        self.value.compile(optimizer=self.value_opt)
         
         self.lr_decay = lr_decay
 
@@ -215,6 +219,12 @@ class A2CAgent(rl.Agent):
                                                     custom_objects={'tf': tf})
             self.target_value = tf.keras.models.clone_model(self.value)
 
+        # init optimizer with new lr
+        self.actor_opt = tf.optimizers.Adam(lr=self.actor_lr_init)
+        self.actor.compile(self.actor_opt)
+        self.value_opt = tf.optimizers.Adam(lr=self.value_lr_init)
+        self.value.compile(self.value_opt)
+        
     def load_from_DDPG(self, filename: str):
 
         passage_layer = np.array([[1., 0.65, 0.,  0., 0., 0., 0., 0., 0., 0.],
@@ -247,6 +257,9 @@ class A2CAgent(rl.Agent):
         
         self.actor = actor
         self.target_actor = tf.keras.models.clone_model(self.actor)
+        # init optimizer with new lr
+        self.actor_opt = tf.optimizers.Adam(lr=self.actor_lr_init)
+        self.actor.compile(self.actor_opt)
 
 
 if __name__ == "__main__":
