@@ -1,5 +1,6 @@
 import os
 import learnrl as rl
+import numpy as np
 import tensorflow as tf
 import tensorflow_probability as tfp
 import tensorflow.keras.backend as K
@@ -22,7 +23,8 @@ class A2CAgent(rl.Agent):
                  act_update_period: int = 1,
                  val_update_period: int = 1,
                  update_factor: float = 1,
-                 mem_method='random'):
+                 mem_method='random',
+                 log=False):
 
         self.actor = actor
         self.actor_lr_init = actor_lr
@@ -60,6 +62,11 @@ class A2CAgent(rl.Agent):
         self.update_factor = update_factor
 
         self.mem_method = mem_method
+        
+        if log:
+            self.save_step = 0
+            self.log = True
+            self.log_buffer = np.zeros((500, 5))
         
         self.step = 0
 
@@ -123,11 +130,20 @@ class A2CAgent(rl.Agent):
             loss = tf.keras.losses.mse(expected_futur_rewards, V)
 
         self.update_network(self.value, loss, tape, self.value_opt)
+        value_loss = float(loss.numpy())
+        value = float(tf.reduce_mean(V).numpy())
         value_metrics = {
-            'value_loss': loss.numpy(),
-            'value': tf.reduce_mean(V).numpy(),
+            'value_loss': value_loss,
+            'value': value,
             'val_lr': K.eval(self.value.optimizer.lr)
         }
+        if self.log:
+            self.log_buffer[2] = np.concatenate([self.log_buffer[2][1:],
+                                                 np.array([value_loss])],
+                                                 axis=0)
+            self.log_buffer[4] = np.concatenate([self.log_buffer[4][1:],
+                                                 np.array([value])],
+                                                 axis=0)
         return value_metrics
 
     def update_actor(self, datas):
@@ -148,19 +164,30 @@ class A2CAgent(rl.Agent):
                                     self.entropy_reg * entropy)
 
         self.update_network(self.actor, loss, tape, self.actor_opt)
-        return {
-            'actor_loss': loss.numpy(),
-            'entropy': tf.reduce_mean(entropy).numpy(),
+        actor_loss = loss.numpy()
+        entropy = tf.reduce_mean(entropy).numpy()
+        actor_metrics = {
+            'actor_loss': actor_loss,
+            'entropy': entropy,
             'act_lr': K.eval(self.actor.optimizer.lr)
         }
+        if self.log:
+            self.log_buffer[1] = np.concatenate([self.log_buffer[1][1:],
+                                                 np.array([actor_loss])],
+                                                 axis=0)
+            self.log_buffer[3] = np.concatenate([self.log_buffer[3][1:],
+                                                 np.array([entropy])],
+                                                 axis=0)
+        
+        return actor_metrics
 
     def update_network(self, network: tf.keras.Model, loss, tape, opt: tf.keras.optimizers.Optimizer):
         grads = tape.gradient(loss, network.trainable_weights)
         opt.apply_gradients(zip(grads, network.trainable_weights))
 
     def update_lr(self):
-        actor_lr = self.actor.optimizer.lr * (1 - self.lr_decay)
-        value_lr = self.value.optimizer.lr * (1 - self.lr_decay)
+        actor_lr = self.actor.optimizer.lr * (1. - self.lr_decay)
+        value_lr = self.value.optimizer.lr * (1. - self.lr_decay)
         K.set_value(self.actor.optimizer.lr, actor_lr)
         K.set_value(self.value.optimizer.lr, value_lr)
     
@@ -187,6 +214,9 @@ class A2CAgent(rl.Agent):
         self.memory.remember(observation, action, reward,
                              done, next_observation)
         self.step += 1
+        if self.log:
+            self.log_buffer[0] = np.concatenate([self.log_buffer[0][1:],
+                                                 np.array([reward])], axis=0)
 
     @staticmethod
     def _get_filenames(filename):
@@ -202,6 +232,30 @@ class A2CAgent(rl.Agent):
         tf.keras.models.save_model(self.actor, fn_actor)
         tf.keras.models.save_model(self.value, fn_value)
         print(f'Models saved at {filename + "_val.h5(_act.h5)"}')
+        if self.log:
+            # save models in specific folder
+            self.save_step += 1
+            filename_dir = os.path.join(*filename.split('/')[:-1])
+            model_name = filename.split('/')[-1]
+            filename_dir = os.path.join(filename_dir, model_name)
+            if not os.path.isdir(filename_dir):
+                os.mkdir(filename_dir)
+            fn_actor = os.path.join(filename_dir, f'save_n°{self.save_step}_act.h5')
+            fn_value = os.path.join(filename_dir, f'save_n°{self.save_step}_val.h5')
+            tf.keras.models.save_model(self.actor, fn_actor)
+            tf.keras.models.save_model(self.value, fn_value)
+            
+            # save local average reward
+            log_name = os.path.join(filename_dir, "logs.txt")
+            with open(log_name, "a") as file:
+                buffer = self.log_buffer
+                reward, aloss, vloss, entropy, V = np.mean(buffer, axis=0)
+                if self.save_step == 1:
+                    txt = "          reward  Aloss  Vloss   Entropy    V\n"
+                    file.write(txt)
+                txt = (f"save_n°{self.save_step} {reward: 6.4f} {aloss: 5.3f} "
+                       f"{vloss: 5.3f} {entropy: 8.4f} {V: .4f}\n")
+                file.write(txt)
 
     def load(self, filename: str, load_actor: bool = True, load_value: bool = True):
         if load_actor:
@@ -421,34 +475,36 @@ if __name__ == "__main__":
         'mem_method': 'random',
         'sample_size': 256,
         # exploration
-        'exploration': 0.0,
-        'exploration_decay': 2e-6,
-        'exploration_min': 0.0,
+        'exploration': 0.1,
+        'exploration_decay': 1e-5,
+        'exploration_min': 0.,
         # discount
         'discount': 0.99,
         # learning rate
         'actor_lr': 1e-6,
-        'value_lr': 1e-4,
-        'lr_decay': 1e-6,
+        'value_lr': 0.5e-6,
+        'lr_decay': 2e-6,
         # entropy
-        'entropy_reg': 1e-2,
+        'entropy_reg': 0,
         # target nets & update parameters
         'val_training_period': 1,
-        'act_training_period': 100000000000,
+        'act_training_period': 5,
         'val_update_period': 1,
-        'act_update_period': 10000000000000,
-        'update_factor': 0.05,
+        'act_update_period': 5,
+        'update_factor': 0.003,
         # environment
         'speed_rwd': 0,
         'circuits_mode': 'aleat',
         # load & save options
-        'model_name': 'FerrarlVGa_01',
-        'load_model': 'DDPG',
-        'load_model_name': "./models/DDPG/FerrarlASa_06",
+        'model_name': 'FerrarlVGa_11',
+        'load_model': 'A2C',
+        'load_model_name': "./models/A2C/FerrarlVGa_01",
         'load_actor': True,
         'load_value': True,
+        'save_every_cycle': True,
+        'cycle_len_time_n_circuits': 1/36,
         # train/test option
-        'test_only': False
+        'test_only': False,
     }
 
     config = Config(config)
@@ -514,11 +570,12 @@ if __name__ == "__main__":
         act_update_period=config.act_update_period,
         update_factor=config.update_factor,
         mem_method=config.mem_method,
+        log=config.save_every_cycle
     )
 
     check = CheckpointCallback(
         os.path.join('models', 'A2C', config.model_name),
-        save_every_cycle=True,
+        save_every_cycle=False,
         run_test=True,
     )
     score_callback = ScoreCallback(print_circuits=False)
@@ -528,6 +585,8 @@ if __name__ == "__main__":
         ('handled_reward~reward', {'steps': 'sum', 'episode': 'sum'}),
         'actor_loss~aloss',
         'value_loss~vloss',
+        'act_lr~alr',
+        'val_lr~vlr',
         'entropy',
         'exploration~exp',
         'value~V'
@@ -552,7 +611,8 @@ if __name__ == "__main__":
                    load_value=config.load_value)
 
     if not config.test_only:
-        pg.fit(10000000, verbose=2, episodes_cycle_len=len(circuits)*10,
+        pg.fit(10000000, verbose=2,
+               episodes_cycle_len=len(circuits)*config.cycle_len_time_n_circuits,
                callbacks=[check], metrics=metrics,
                reward_handler=lambda reward, **kwargs: reward
                )
