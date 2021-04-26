@@ -2,6 +2,7 @@ import os
 import learnrl as rl
 import tensorflow as tf
 import tensorflow_probability as tfp
+import tensorflow.keras.backend as K
 
 from carl.agents.tensorflow.memory import Memory
 from gym.spaces import Box
@@ -12,6 +13,7 @@ class A2CAgent(rl.Agent):
     def __init__(self, actions_space: Box,
                  actor: tf.keras.Model = None, actor_lr=1e-4,
                  value: tf.keras.Model = None, value_lr=1e-4,
+                 lr_decay=0.,
                  memory: Memory = None,
                  sample_size=32, discount=0.99, entropy_reg=0,
                  exploration=0, exploration_decay=0, exploration_minimal=0,
@@ -19,7 +21,8 @@ class A2CAgent(rl.Agent):
                  val_training_period: int = 1,
                  act_update_period: int = 1,
                  val_update_period: int = 1,
-                 update_factor: float = 1):
+                 update_factor: float = 1,
+                 mem_method='random'):
 
         self.actor = actor
         self.actor_opt = tf.keras.optimizers.Adam(actor_lr)
@@ -28,6 +31,8 @@ class A2CAgent(rl.Agent):
         self.value = value
         self.value_opt = tf.keras.optimizers.Adam(value_lr)
         self.target_value = tf.keras.models.clone_model(value)
+        
+        self.lr_decay = lr_decay
 
         self.discount = discount
 
@@ -50,6 +55,8 @@ class A2CAgent(rl.Agent):
         self.val_update_period = val_update_period
         self.update_factor = update_factor
 
+        self.mem_method = mem_method
+        
         self.step = 0
 
     def act(self, observation, greedy=False):
@@ -73,11 +80,13 @@ class A2CAgent(rl.Agent):
         if self.step % self.val_update_period == 0:
             self.update(self.value, self.target_value)
 
-        datas = self.memory.sample(self.sample_size)
+        datas = self.memory.sample(self.sample_size, method=self.mem_method)
 
         metrics = {
             'exploration': self.update_exploration(),
         }
+        
+        self.update_lr()
 
         if self.step % self.val_training_period == 0:
             metrics.update(self.update_value(datas))
@@ -112,7 +121,8 @@ class A2CAgent(rl.Agent):
         self.update_network(self.value, loss, tape, self.value_opt)
         value_metrics = {
             'value_loss': loss.numpy(),
-            'value': tf.reduce_mean(V).numpy()
+            'value': tf.reduce_mean(V).numpy(),
+            'val_lr': K.eval(self.value.optimizer.lr)
         }
         return value_metrics
 
@@ -136,13 +146,20 @@ class A2CAgent(rl.Agent):
         self.update_network(self.actor, loss, tape, self.actor_opt)
         return {
             'actor_loss': loss.numpy(),
-            'entropy': tf.reduce_mean(entropy).numpy()
+            'entropy': tf.reduce_mean(entropy).numpy(),
+            'act_lr': K.eval(self.actor.optimizer.lr)
         }
 
     def update_network(self, network: tf.keras.Model, loss, tape, opt: tf.keras.optimizers.Optimizer):
         grads = tape.gradient(loss, network.trainable_weights)
         opt.apply_gradients(zip(grads, network.trainable_weights))
 
+    def update_lr(self):
+        actor_lr = self.actor.optimizer.lr * (1 - self.lr_decay)
+        value_lr = self.value.optimizer.lr * (1 - self.lr_decay)
+        K.set_value(self.actor.optimizer.lr, actor_lr)
+        K.set_value(self.value.optimizer.lr, value_lr)
+    
     def evaluate(self, rewards, dones, next_observations, value):
         futur_rewards = rewards
 
@@ -188,6 +205,10 @@ class A2CAgent(rl.Agent):
             self.actor = tf.keras.models.load_model(fn_actor,
                                                     custom_objects={'tf': tf})
             self.target_actor = tf.keras.models.clone_model(self.actor)
+            # defreeze actor if was freeze
+            self.actor.trainable = True
+            self.target_actor.trainable = True
+        
         if load_value:
             fn_value = filename + "_val.h5"
             self.value = tf.keras.models.load_model(fn_value,
@@ -201,32 +222,29 @@ class A2CAgent(rl.Agent):
                                   [0., 0., 0., 0.45, 1., 0.45, 0., 0., 0., 0.],
                                   [0., 0., 0., 0., 0., 0.55, 1., 0.35, 0., 0.],
                                   [0., 0., 0., 0., 0., 0., 0., 0.65, 1., 0.],
-                                  [0., 0., 0., 0., 0., 0., 0., 0., 0., 2/5]])
+                                  [0., 0., 0., 0., 0., 0., 0., 0., 0., 0.6]])
 
-        passage_layer[:, 0:4] *= 0.85
-        passage_layer[:, 4:5] *= 0.85
-        passage_layer[:, 5:9] *= 0.85
-
-        #  passage_layer[:, :-1] *= 0.85
+        passage_layer[:, :-1] *= 0.85
 
         passage_bias = np.array([0.]*10)
 
         fn_actor = filename + "_act.h5"
         model_DDPG = tf.keras.models.load_model(fn_actor,
                                                 custom_objects={'tf': tf})
-        model_DDPG.trainable = False
         inputs = kl.Input((6,))
-        x = kl.Dense(10, activation='linear', trainable=False)(inputs)
+        x = kl.Dense(10, activation='linear')(inputs)
         x = model_DDPG(x)
         std_layer = kl.Dense(2, activation='linear',
-                             kernel_initializer=tf.keras.initializers.RandomUniform(-3e-5, 3e-5))
-        std_layer.trainable = False
+                             kernel_initializer=tf.keras.initializers.RandomUniform(0, 0))
         x = tf.concat([x, std_layer(inputs)], axis=-1)
         outputs = tfpl.IndependentNormal(2)(x)
         actor = tf.keras.Model(inputs=inputs, outputs=outputs)
         weights = actor.get_weights()
         weights[0], weights[1] = passage_layer, passage_bias
         actor.set_weights(weights)
+        # freeze actor
+        actor.trainable = False
+        
         self.actor = actor
         self.target_actor = tf.keras.models.clone_model(self.actor)
 
@@ -384,57 +402,21 @@ if __name__ == "__main__":
 
         return pipeline
 
-    config_start = {
-        # memory
-        'max_memory_len': 10000,
-        'mem_method': 'random',             # not yet implemented
-        'sample_size': 256,
-        # exploration
-        'exploration': 0.8,
-        'exploration_decay': 2e-6,
-        'exploration_min': 0.2,
-        # discount
-        'discount': 0.99,
-        # learning rate
-        'actor_lr': 1e-6,
-        'value_lr': 3e-6,
-        'lr_decay': 1e-6,                    # not yet implemented
-        # entropy
-        'entropy_reg': 1e-2,
-        # target nets & update parameters
-        'val_training_period': 1,
-        'act_training_period': 1,
-        'val_update_period': 1,
-        'act_update_period': 1,
-        'update_factor': 0.1,
-        # environment
-        'speed_rwd': 1/10,
-        'circuits_mode': '6',
-        # load & save options
-        'model_name': 'FerrarlASa_07',
-        'load_model': False,
-        'load_model_name': "./models/A2C/FerrarlASa_03/episode_599",
-        'load_actor': True,
-        'load_value': True,
-        # train/test option
-        'test_only': False
-    }
-
     config = {
         # memory
         'max_memory_len': 10000,
-        'mem_method': 'random',             # not yet implemented
+        'mem_method': 'random',
         'sample_size': 256,
         # exploration
-        'exploration': 0.8,
+        'exploration': 0.0,
         'exploration_decay': 2e-6,
-        'exploration_min': 0.2,
+        'exploration_min': 0.0,
         # discount
         'discount': 0.99,
         # learning rate
         'actor_lr': 1e-6,
-        'value_lr': 3e-6,
-        'lr_decay': 1e-6,                    # not yet implemented
+        'value_lr': 1e-4,
+        'lr_decay': 1e-6,
         # entropy
         'entropy_reg': 1e-2,
         # target nets & update parameters
@@ -447,21 +429,21 @@ if __name__ == "__main__":
         'speed_rwd': 0,
         'circuits_mode': 'aleat',
         # load & save options
-        'model_name': 'FerrarlASa_04',
-        'load_model': True,
-        'load_model_name': "./models/A2C/FerrarlASa_03/episode_599",
+        'model_name': 'FerrarlVGa_01',
+        'load_model': 'DDPG',
+        'load_model_name': "./models/DDPG/FerrarlASa_06",
         'load_actor': True,
         'load_value': True,
         # train/test option
-        'test_only': True
+        'test_only': False
     }
 
     config = Config(config)
 
     circuits = circuits_pipeline(mode=config.circuits_mode)
     env = Environment(circuits, action_type='continueous',
-                      n_sensors=5, fov=np.pi*200/180, car_width=0.1, speed_unit=0.05,
-                      speed_rwd=config.speed_rwd)
+                      n_sensors=5, fov=np.pi*200/180, car_width=0.1,
+                      speed_unit=0.05, speed_rwd=config.speed_rwd)
 
     memory = Memory(config.max_memory_len)
 
@@ -508,6 +490,7 @@ if __name__ == "__main__":
         exploration=config.exploration,
         actor_lr=config.actor_lr,
         value_lr=config.value_lr,
+        lr_decay=config.lr_decay,
         exploration_decay=config.exploration_decay,
         exploration_minimal=config.exploration_min,
         discount=config.discount,
@@ -516,8 +499,8 @@ if __name__ == "__main__":
         act_training_period=config.act_training_period,
         val_update_period=config.val_update_period,
         act_update_period=config.act_update_period,
-        update_factor=config.update_factor
-
+        update_factor=config.update_factor,
+        mem_method=config.mem_method,
     )
 
     check = CheckpointCallback(
@@ -539,9 +522,21 @@ if __name__ == "__main__":
 
     pg = rl.Playground(env, agent)
 
-    if config.load_model == True:
+    if config.load_model == 'DDPG':
         name = config.load_model_name
-        agent.load_from_DDPG('./models/DDPG/FerrarlASa_06')
+        if name.split('/')[2] != 'DDPG':
+            raise ValueError("loaded model is not in the expected folder as "
+                             "regard to the load_model parameter in config"
+                             " (expected DDPG)")
+        agent.load_from_DDPG(name)
+    elif config.load_model == 'A2C':
+        name = config.load_model_name
+        if name.split('/')[2] != 'A2C':
+            raise ValueError("loaded model is not in the expected folder as "
+                             "regard to the load_model parameter in config"
+                             " (expected DDPG)")
+        agent.load(config.load_model_name, load_actor=config.load_actor,
+                   load_value=config.load_value)
 
     if not config.test_only:
         pg.fit(10000000, verbose=2, episodes_cycle_len=len(circuits)*10,
