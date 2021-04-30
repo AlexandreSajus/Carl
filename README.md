@@ -1,18 +1,10 @@
-# Self-driving car with Reinforcement learning
+# Winning Carl: a Car Racing Reinforcement Learning Competition hosted at CentraleSupélec
 
-### Rewards en circuit simple :
-![Rewards](images/rewards.png)
+During the month of April 2021, Automatants (https://www.linkedin.com/company/automatants/mycompany/) Carl: a Car Racing Reinforcement Learning Competition where participants had to learn to code from scratch and train three reinforcement learning agents (DQN, DDPG and A2C) that would then race against each other on a race track.
 
-### Exemple de circuit :
-![Carl racing](images/racing.gif)
+Our team FerraRl, composed of Valentin Goldité (https://github.com/valentingol) and I, won the competition against six fierce opponents.
 
-Start by installing the requirements:
-```
-pip install -r requirements.txt
-```
+Thanks a lot to Mathïs Fédérico (https://github.com/MathisFederico) for organizing this competition and for teaching us RL from scratch; and to Valentin Goldité for teaching me a lot about training RL agents and for helping me throughout this competition.
 
-To train your any agent:
-```
-python -m carl.agents.tensorflow.<agent_name>
-```
+Here's a video of our submission:
 
