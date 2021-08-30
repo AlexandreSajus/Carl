@@ -10,3 +10,4 @@ Our team FerraRl, composed of Valentin Goldité (https://github.com/valentingol)
 
 Thanks a lot to Mathïs Fédérico (https://github.com/MathisFederico) for organizing this competition and for teaching us RL from scratch; and to Valentin Goldité for teaching me a lot about training RL agents and for helping me throughout this competition.
 
+Please check https://github.com/AlexandreSajus/Carl-demo if you want to run a demo of this project yourself
